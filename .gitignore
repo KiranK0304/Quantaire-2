@@ -10,3 +10,4 @@ wheels/
 .venv
 stockmarket-pattern-detection-yolov8/
 screenshots
+outputs/
