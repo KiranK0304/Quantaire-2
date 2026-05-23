@@ -6,6 +6,7 @@ and saves the annotated result.
 """
 
 import cv2
+import numpy as np
 from pathlib import Path
 
 from configs.settings import ANNOTATED_DIR
@@ -29,13 +30,18 @@ COORD_FONT_SCALE = 0.8
 COORD_THICKNESS = 2
 
 
-def draw_and_save(image_path: str | Path, detection: dict) -> str | None:
+def draw_and_save(
+    image: str | Path | np.ndarray,
+    detection: dict,
+    output_dir: Path | None = None,
+) -> str | None:
     """
     Draw detection box, label, and coordinates on the image and save it.
 
     Args:
-        image_path: Path to the original chart screenshot.
+        image:      Path to the original chart screenshot, OR a numpy array (BGR).
         detection:  Detection dict from inference.run_inference().
+        output_dir: Directory to save the annotated image. Defaults to ANNOTATED_DIR.
 
     Returns:
         Path to the saved annotated image, or None if no detection / error.
@@ -45,11 +51,14 @@ def draw_and_save(image_path: str | Path, detection: dict) -> str | None:
         return None
 
     try:
-        # Read the original image
-        img = cv2.imread(str(image_path))
-        if img is None:
-            print(f"[visualize] ERROR: Could not read image: {image_path}")
-            return None
+        # Load or use the image
+        if isinstance(image, np.ndarray):
+            img = image.copy()
+        else:
+            img = cv2.imread(str(image))
+            if img is None:
+                print(f"[visualize] ERROR: Could not read image: {image}")
+                return None
 
         ticker = detection["ticker"]
         label = detection["label"]
@@ -98,12 +107,13 @@ def draw_and_save(image_path: str | Path, detection: dict) -> str | None:
         # ------------------------------------------------------------------
         # Save annotated image
         # ------------------------------------------------------------------
-        ANNOTATED_DIR.mkdir(parents=True, exist_ok=True)
-        output_path = ANNOTATED_DIR / f"{ticker}_detected.png"
+        save_dir = output_dir or ANNOTATED_DIR
+        save_dir.mkdir(parents=True, exist_ok=True)
+        output_path = save_dir / f"{ticker}_detected.png"
 
         cv2.imwrite(str(output_path), img)
         return str(output_path)
 
     except Exception as e:
-        print(f"[visualize] ERROR drawing on {image_path}: {e}")
+        print(f"[visualize] ERROR drawing on image: {e}")
         return None

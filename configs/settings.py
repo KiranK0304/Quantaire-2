@@ -29,6 +29,9 @@ CONFIDENCE_THRESHOLD = 0.2
 
 SCREENSHOTS_DIR = PROJECT_ROOT / "screenshots"
 
+# Single-stock analysis saves annotated output here (no raw screenshot saved)
+ANALYZED_DIR = SCREENSHOTS_DIR / "analyzed"
+
 OUTPUTS_DIR = PROJECT_ROOT / "outputs"
 ANNOTATED_DIR = OUTPUTS_DIR / "annotated"
 LOGS_DIR = OUTPUTS_DIR / "logs"

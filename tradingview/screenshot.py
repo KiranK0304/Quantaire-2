@@ -90,3 +90,48 @@ def take_chart_screenshot(page: Page, ticker: str) -> bool:
     except Exception as e:
         print(f"[screenshot] ❌ ERROR capturing screenshot for {ticker}: {e}")
         return False
+
+
+def capture_chart_to_bytes(page: Page) -> bytes | None:
+    """
+    Capture a screenshot of the chart area and return it as PNG bytes.
+
+    This does NOT save anything to disk. The bytes can be decoded into
+    a numpy array for in-memory inference.
+
+    Args:
+        page: The active Playwright page.
+
+    Returns:
+        PNG image bytes, or None if the chart element could not be found.
+    """
+
+    print("[screenshot] Capturing chart to memory...")
+
+    try:
+        # Use the same selectors as take_chart_screenshot
+        chart_selectors = [
+            '.layout__area--center',
+            '[data-name="chart-container"]',
+            '.chart-markup-table',
+            '.chart-container',
+        ]
+
+        for selector in chart_selectors:
+            try:
+                locator = page.locator(selector)
+                if locator.count() > 0 and locator.first.is_visible():
+                    png_bytes = locator.first.screenshot()
+                    print(f"[screenshot] ✅ Chart captured in memory ({len(png_bytes)} bytes)")
+                    return png_bytes
+            except Exception:
+                continue
+
+        # Fallback: full viewport screenshot
+        print("[screenshot] WARNING: Chart container not found, capturing full viewport.")
+        png_bytes = page.screenshot(full_page=False)
+        return png_bytes
+
+    except Exception as e:
+        print(f"[screenshot] ❌ ERROR capturing chart to memory: {e}")
+        return None

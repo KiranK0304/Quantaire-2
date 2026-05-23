@@ -7,12 +7,14 @@ Selects only the rightmost/latest box (most recent pattern on the chart).
 
 from pathlib import Path
 
+import numpy as np
+
 from detector.model import load_model
 from detector.postprocess import select_rightmost_box, filter_by_confidence, box_to_dict
 from configs.settings import CONFIDENCE_THRESHOLD
 
 
-def run_inference(image_path: str | Path, ticker: str) -> dict:
+def run_inference(image: str | Path | np.ndarray, ticker: str) -> dict:
     """
     Run YOLO inference on a single chart screenshot.
 
@@ -24,8 +26,8 @@ def run_inference(image_path: str | Path, ticker: str) -> dict:
       5. Return structured detection result
 
     Args:
-        image_path: Path to the chart screenshot PNG.
-        ticker:     Stock ticker name (e.g. "RELIANCE").
+        image:  Path to the chart screenshot PNG, OR a numpy array (BGR).
+        ticker: Stock ticker name (e.g. "RELIANCE").
 
     Returns:
         Detection dict with keys:
@@ -39,8 +41,11 @@ def run_inference(image_path: str | Path, ticker: str) -> dict:
 
     model = load_model()
 
-    # Run YOLO inference
-    results = model(str(image_path), conf=CONFIDENCE_THRESHOLD)
+    # Run YOLO inference — accepts both file paths and numpy arrays
+    if isinstance(image, np.ndarray):
+        results = model(image, conf=CONFIDENCE_THRESHOLD)
+    else:
+        results = model(str(image), conf=CONFIDENCE_THRESHOLD)
 
     # Check if any detections exist
     if not results or len(results[0].boxes) == 0:
