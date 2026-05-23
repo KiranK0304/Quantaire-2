@@ -14,12 +14,10 @@ import time
 import json
 from datetime import datetime
 
-from configs.settings import LOGS_DIR
+from configs.settings import LOGS_DIR, SCREENSHOTS_DIR
 
-from tradingview.browser import launch_browser, open_tradingview, close_browser, dismiss_popups
-from tradingview.search import search_ticker
-from tradingview.timeframe import set_daily_timeframe, zoom_out_chart
-from tradingview.screenshot import take_chart_screenshot
+from tradingview.browser import launch_browser, open_tradingview, close_browser
+from tradingview.capture import capture_ticker_chart
 
 
 # --------------------------------------------------------------------------
@@ -128,33 +126,39 @@ def run():
             print(f"  [{i}/{len(STOCKS)}] Processing: {ticker}")
             print(f"{'—' * 50}")
 
-            # Step 0: Dismiss any popups that appeared (login, ads, etc.)
-            dismiss_popups(page)
+            # 1. Try to capture normally
+            png_bytes = capture_ticker_chart(page, ticker)
 
-            # Step 1: Search for the ticker
-            if not search_ticker(page, ticker):
-                print(f"  SKIPPING {ticker} — search failed.")
-                failed.append(ticker)
-                log_entry["status"] = "failed"
-                log_entry["reason"] = "Search failed"
-                scanner_logs.append(log_entry)
-                continue
+            # 2. If it fails (likely due to signup overlay), launch fresh session
+            if not png_bytes:
+                print(f"  Capture failed for {ticker}. Launching fresh browser session and retrying...")
+                
+                # Force-close the blocked session
+                close_browser(browser)
+                
+                # Launch a brand new incognito session
+                browser, context, page = launch_browser(playwright)
+                open_tradingview(page)
+                
+                # Retry capture
+                png_bytes = capture_ticker_chart(page, ticker)
 
-            # Step 2: Set timeframe to Daily
-            if not set_daily_timeframe(page):
-                print(f"  WARNING for {ticker} — timeframe setup failed.")
-                log_entry["reason"] = "Timeframe setup failed (proceeded anyway)"
-
-            # Step 3: Zoom out for more candles
-            zoom_out_chart(page, steps=3)
-
-            # Step 4: Take screenshot
-            if take_chart_screenshot(page, ticker):
+            # 3. Process results
+            if png_bytes:
+                # Save the captured bytes to disk
+                SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
+                save_path = SCREENSHOTS_DIR / f"{ticker}.png"
+                save_path.write_bytes(png_bytes)
+                print(f"  ✅ Saved: {save_path}")
                 success.append(ticker)
+                
+                # If it succeeded on the retry, update the log entry status back to success
+                log_entry["status"] = "success"
+                log_entry["reason"] = "OK (after session recreation retry)"
             else:
                 failed.append(ticker)
                 log_entry["status"] = "failed"
-                log_entry["reason"] = "Screenshot failed"
+                log_entry["reason"] = "Capture failed even after fresh session retry"
 
             scanner_logs.append(log_entry)
 

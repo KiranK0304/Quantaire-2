@@ -18,10 +18,8 @@ import numpy as np
 from playwright.sync_api import sync_playwright
 
 from configs.settings import ANALYZED_DIR
-from tradingview.browser import launch_browser, open_tradingview, close_browser, dismiss_popups
-from tradingview.search import search_ticker
-from tradingview.timeframe import set_daily_timeframe, zoom_out_chart
-from tradingview.screenshot import capture_chart_to_bytes
+from tradingview.browser import launch_browser, open_tradingview, close_browser
+from tradingview.capture import capture_ticker_chart
 from detector.inference import run_inference
 from detector.visualize import draw_and_save
 
@@ -32,14 +30,12 @@ def analyze_single(ticker: str, show_image: bool = False) -> dict | None:
 
     Steps:
       1. Launch browser and open TradingView
-      2. Search for the ticker
-      3. Set timeframe to Daily + zoom out
-      4. Capture chart screenshot to memory (no disk write)
-      5. Close browser
-      6. Decode PNG bytes to numpy array
-      7. Run YOLO inference on the numpy array
-      8. Save annotated image to screenshots/analyzed/
-      9. Print results
+      2. Capture chart using the shared core function (search → timeframe → zoom → screenshot)
+      3. Close browser
+      4. Decode PNG bytes to numpy array
+      5. Run YOLO inference on the numpy array
+      6. Save annotated image to screenshots/analyzed/
+      7. Print results
 
     Args:
         ticker: Stock symbol (e.g. "RELIANCE", "TCS").
@@ -66,20 +62,9 @@ def analyze_single(ticker: str, show_image: bool = False) -> dict | None:
 
         try:
             open_tradingview(page)
-            dismiss_popups(page)
 
-            # Search for the ticker
-            if not search_ticker(page, ticker):
-                print(f"\n  ❌ FAILED: Could not find '{ticker}' on TradingView.")
-                close_browser(browser)
-                return None
-
-            # Set timeframe and zoom
-            set_daily_timeframe(page)
-            zoom_out_chart(page, steps=3)
-
-            # Capture chart to memory
-            png_bytes = capture_chart_to_bytes(page)
+            # Use the same core function as the batch scanner
+            png_bytes = capture_ticker_chart(page, ticker)
 
         finally:
             close_browser(browser)
