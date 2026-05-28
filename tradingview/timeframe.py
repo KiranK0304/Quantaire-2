@@ -1,27 +1,24 @@
 """
 timeframe.py — Timeframe selection logic.
 
-Handles:
-  - Setting the chart timeframe to 1 Day (Daily)
-  - Zooming out the chart to show more candles using mouse scroll
-
-IMPORTANT:
-  - Pressing just "D" on a chart opens symbol search and types "d" — WRONG.
-  - Pressing "1" then "D" then "Enter" opens the timeframe dropdown and
-    selects 1 Day — CORRECT.
-  - Ctrl+Minus / Shift+ArrowLeft zoom the browser page, NOT the chart scale.
-  - To zoom the chart's time scale, use mouse wheel scroll on the chart area.
+Handles setting the chart timeframe, date range, and zoom.
 """
 
+from datetime import date, timedelta
+from dateutil.relativedelta import relativedelta
 from playwright.sync_api import Page
 
 
+RANGE_OFFSETS = {
+    "1M": relativedelta(months=1),
+    "3M": relativedelta(months=3),
+    "6M": relativedelta(months=6),
+    "1Y": relativedelta(years=1),
+}
+
+
 def _focus_chart(page: Page) -> None:
-    """
-    Click on the chart canvas to ensure keyboard focus is on the chart,
-    not on any toolbar button. This prevents keyboard shortcuts from
-    accidentally triggering toolbar buttons (like symbol search).
-    """
+    """Focus the chart canvas to prevent accidental toolbar shortcuts."""
 
     try:
         chart_area = page.locator('.layout__area--center')
@@ -30,7 +27,6 @@ def _focus_chart(page: Page) -> None:
             page.wait_for_timeout(300)
             return
 
-        # Fallback: click on a canvas element
         canvas = page.locator("canvas")
         if canvas.count() > 0:
             canvas.first.click()
@@ -40,51 +36,24 @@ def _focus_chart(page: Page) -> None:
         pass
 
 
-def set_daily_timeframe(page: Page) -> bool:
-    """
-    Set the TradingView chart timeframe to 1 Day (Daily).
-
-    The correct keyboard sequence is: "1" → "D" → "Enter"
-    This opens the timeframe input, types "1D", and confirms it.
-
-    Pressing just "D" alone DOES NOT work — it triggers symbol search.
-
-    Args:
-        page: The active Playwright page.
-
-    Returns:
-        True if timeframe was set successfully, False otherwise.
-    """
-
-    print("[timeframe] Setting timeframe to 1D (Daily)...")
+def set_timeframe(page: Page, tf: str) -> bool:
+    """Set the TradingView chart timeframe dynamically (e.g., '1D', '1W', '1h')."""
+    print(f"[timeframe] Setting timeframe to {tf}...")
 
     try:
-        # Focus the chart canvas first
         _focus_chart(page)
-
-        # Close any open dialogs
         page.keyboard.press("Escape")
         page.wait_for_timeout(500)
-
-        # Re-focus chart after Escape
         _focus_chart(page)
 
-        # ------------------------------------------------------------------
-        # Correct sequence: press "1", then "d", then "Enter"
-        # ------------------------------------------------------------------
-        # This opens the timeframe input field in the toolbar,
-        # types "1D" into it, and confirms the selection.
-
-        page.keyboard.press("1")
-        page.wait_for_timeout(300)
-
-        page.keyboard.press("d")
-        page.wait_for_timeout(300)
+        for char in tf:
+            page.keyboard.press(char)
+            page.wait_for_timeout(300)
 
         page.keyboard.press("Enter")
         page.wait_for_timeout(1500)
 
-        print("[timeframe] Timeframe set to Daily (1D).")
+        print(f"[timeframe] Timeframe set to {tf}.")
         return True
 
     except Exception as e:
@@ -92,21 +61,121 @@ def set_daily_timeframe(page: Page) -> bool:
         return False
 
 
+def set_date_range(page: Page, date_range: str) -> bool:
+    """
+    Set the chart's visible date range using Alt+G 'Go to' → 'Custom range'.
+    Calculates start/end dates dynamically (e.g. '3M' = 3 months ago → today).
+    """
+    date_range = date_range.upper()
+    offset = RANGE_OFFSETS.get(date_range)
+
+    if not offset:
+        print(f"[timeframe] ERROR: Unsupported date range '{date_range}'")
+        return False
+
+    today = date.today()
+    start_date = today - offset
+    start_str = start_date.strftime("%Y-%m-%d")
+    end_str = today.strftime("%Y-%m-%d")
+
+    print(f"[timeframe] Setting custom range: {start_str} → {end_str} ({date_range})...")
+
+    try:
+        # 1. Focus chart and open Go-to dialog with Alt+G
+        _focus_chart(page)
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(300)
+        _focus_chart(page)
+        page.keyboard.press("Alt+g")
+        page.wait_for_timeout(1000)
+
+        # 2. Click the "Custom range" tab
+        custom_tab = page.get_by_text("Custom range", exact=True)
+        if custom_tab.count() > 0:
+            custom_tab.first.click()
+            page.wait_for_timeout(500)
+        else:
+            print("[timeframe] WARNING: 'Custom range' tab not found, trying to proceed...")
+
+        # 3. Find date inputs (skip disabled time inputs)
+        # Dialog layout: [start_date, start_time(disabled), end_date, end_time(disabled)]
+        all_inputs = page.locator('[class*="dialog"] input').all()
+        print(f"[timeframe] Dialog inputs found: {len(all_inputs)}")
+
+        # Filter to only enabled date inputs (not the disabled time pickers)
+        date_inputs = []
+        for inp in all_inputs:
+            is_disabled = inp.get_attribute("disabled") is not None
+            qa_id = inp.get_attribute("data-qa-id") or ""
+            if not is_disabled and "time-input" not in qa_id:
+                date_inputs.append(inp)
+
+        print(f"[timeframe] Usable date inputs: {len(date_inputs)}")
+
+        if len(date_inputs) >= 2:
+            # Clear and fill start date
+            date_inputs[0].click(click_count=3)
+            page.wait_for_timeout(200)
+            page.keyboard.press("Control+A")
+            page.keyboard.press("Backspace")
+            page.wait_for_timeout(200)
+            date_inputs[0].type(start_str, delay=50)
+            page.wait_for_timeout(300)
+
+            # Clear and fill end date
+            date_inputs[1].click(click_count=3)
+            page.wait_for_timeout(200)
+            page.keyboard.press("Control+A")
+            page.keyboard.press("Backspace")
+            page.wait_for_timeout(200)
+            date_inputs[1].type(end_str, delay=50)
+            page.wait_for_timeout(300)
+            
+            # Press Enter to submit the dialog
+            page.keyboard.press("Enter")
+        elif len(all_inputs) >= 3:
+            # Fallback: use indices 0 (start date) and 2 (end date)
+            print("[timeframe] Using fallback indices 0 and 2...")
+            all_inputs[0].click(click_count=3)
+            page.wait_for_timeout(200)
+            page.keyboard.press("Control+A")
+            page.keyboard.press("Backspace")
+            page.wait_for_timeout(200)
+            all_inputs[0].type(start_str, delay=50)
+            page.wait_for_timeout(300)
+            
+            all_inputs[2].click(click_count=3)
+            page.wait_for_timeout(200)
+            page.keyboard.press("Control+A")
+            page.keyboard.press("Backspace")
+            page.wait_for_timeout(200)
+            all_inputs[2].type(end_str, delay=50)
+            page.wait_for_timeout(300)
+            
+            page.keyboard.press("Enter")
+        else:
+            print("[timeframe] ERROR: Could not find enough date inputs in dialog.")
+            page.keyboard.press("Escape")
+            return False
+
+        # Wait for chart to re-render
+        page.wait_for_timeout(2500)
+
+        print(f"[timeframe] Date range set to {date_range} ({start_str} → {end_str}).")
+        return True
+
+    except Exception as e:
+        print(f"[timeframe] ERROR setting date range: {e}")
+        # Try to close dialog if it's still open
+        try:
+            page.keyboard.press("Escape")
+        except Exception:
+            pass
+        return False
+
+
 def zoom_out_chart(page: Page, steps: int = 10) -> None:
-    """
-    Zoom out the chart to show more candles / wider price history.
-
-    Uses mouse wheel scroll on the chart area. Scrolling DOWN on the
-    chart zooms out (shows more candles / compresses the time axis).
-
-    NOTE: Ctrl+Minus and Shift+ArrowLeft zoom the BROWSER, not the chart.
-          Mouse wheel on the chart is the correct way to scale the chart.
-
-    Args:
-        page:  The active Playwright page.
-        steps: Number of scroll steps (default 10). Each step is one
-               mouse wheel tick.
-    """
+    """Zoom out the chart to show more candles using mouse scroll."""
 
     print(f"[timeframe] Zooming out chart with mouse scroll ({steps} steps)...")
 
