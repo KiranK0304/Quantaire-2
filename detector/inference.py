@@ -54,11 +54,19 @@ def run_inference(image: str | Path | np.ndarray, ticker: str, timeframe: str = 
             "is_recent": False,
         }
 
+    # Extract actual image width for correct recency calculation
+    if isinstance(image, np.ndarray):
+        img_w = image.shape[1]
+    else:
+        import cv2
+        tmp_img = cv2.imread(str(image))
+        img_w = tmp_img.shape[1] if tmp_img is not None else 1920
+
     # Select the rightmost (most recent) box
     best_box = select_rightmost_box(good_boxes)
 
     # Convert to dictionary
-    result = box_to_dict(best_box, model.names, ticker, timeframe)
+    result = box_to_dict(best_box, model.names, ticker, timeframe, image_width=img_w)
     result["detected"] = True
     result["all_count"] = total_count
 

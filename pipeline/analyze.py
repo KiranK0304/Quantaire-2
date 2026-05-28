@@ -14,7 +14,7 @@ import numpy as np
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 
-from configs.settings import ANALYZED_DIR, SINGLE_STOCK_DIR
+from configs.settings import ANALYZED_DIR, SINGLE_STOCK_DIR, CROP_INFERENCE_RATIO, SAVE_CROP_IMAGES
 from tradingview.browser import launch_browser, open_tradingview, close_browser
 from tradingview.capture import capture_ticker_chart, capture_chart_range
 from tradingview.search import search_ticker
@@ -101,9 +101,26 @@ def analyze_single(ticker: str, timeframe: str = "1D", show_image: bool = False,
                     print(f"  💾 Raw screenshot saved: {raw_path.name}")
 
                     img_array = cv2.imdecode(np.frombuffer(png_bytes, dtype=np.uint8), cv2.IMREAD_COLOR)
-                    res = run_inference(img_array, ticker, timeframe=dr)
+                    
+                    # --- Cropped Inference Strategy ---
+                    height, width = img_array.shape[:2]
+                    crop_start_x = int(width * (1.0 - CROP_INFERENCE_RATIO))
+                    crop_img = img_array[:, crop_start_x:]
+                    
+                    if SAVE_CROP_IMAGES:
+                        crop_path = run_folder / f"{ticker}_{dr}_crop.png"
+                        cv2.imwrite(str(crop_path), crop_img)
+                        print(f"  ✂️  Cropped image saved: {crop_path.name}")
+                        
+                    # Run inference on the CROP
+                    res = run_inference(crop_img, ticker, timeframe=dr)
                     
                     if res["detected"]:
+                        # Map coordinates back to the full image
+                        res["box"][0] += crop_start_x
+                        res["box"][2] += crop_start_x
+                        
+                        # Draw on the FULL image
                         output_path = draw_and_save(img_array, res, output_dir=run_folder)
                         res["output_path"] = output_path
                         print(f"  ✅ Pattern: {res['label']} ({res['confidence']:.2f})")
@@ -130,6 +147,16 @@ def analyze_single(ticker: str, timeframe: str = "1D", show_image: bool = False,
 
                 img_array = cv2.imdecode(np.frombuffer(png_bytes, dtype=np.uint8), cv2.IMREAD_COLOR)
 
+                # --- Cropped Inference Strategy ---
+                height, width = img_array.shape[:2]
+                crop_start_x = int(width * (1.0 - CROP_INFERENCE_RATIO))
+                crop_img = img_array[:, crop_start_x:]
+                
+                if SAVE_CROP_IMAGES:
+                    crop_path = ANALYZED_DIR / f"{ticker}_crop.png"
+                    crop_path.parent.mkdir(parents=True, exist_ok=True)
+                    cv2.imwrite(str(crop_path), crop_img)
+
                 if show_image:
                     import matplotlib.pyplot as plt
                     print("\n  Showing captured screenshot (close window to continue)...")
@@ -141,20 +168,25 @@ def analyze_single(ticker: str, timeframe: str = "1D", show_image: bool = False,
                     plt.tight_layout()
                     plt.show()
 
-                print("\n  Phase 3: Running YOLO inference...")
-                result = run_inference(img_array, ticker, timeframe)
+                print("\n  Phase 3: Running YOLO inference on cropped region...")
+                result = run_inference(crop_img, ticker, timeframe)
 
                 print(f"\n{'=' * 55}")
                 print(f"  Result: {ticker}")
                 print(f"{'=' * 55}")
 
                 if result["detected"]:
+                    # Map coordinates back to the full image
+                    result["box"][0] += crop_start_x
+                    result["box"][2] += crop_start_x
+                    
                     x1, y1, x2, y2 = result["box"]
                     print(f"  Pattern      : {result['label']}")
                     print(f"  Confidence   : {result['confidence']:.2f}")
                     print(f"  Coordinates  : ({x1},{y1}) → ({x2},{y2})")
                     print(f"  Total boxes  : {result['all_count']}")
 
+                    # Draw on FULL image
                     output_path = draw_and_save(img_array, result, output_dir=ANALYZED_DIR)
                     if output_path:
                         print(f"  Saved Output : {output_path}")

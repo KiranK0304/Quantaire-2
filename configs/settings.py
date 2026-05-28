@@ -23,6 +23,16 @@ MODEL_PATH = PROJECT_ROOT / "stockmarket-pattern-detection-yolov8" / "model.pt"
 # Minimum confidence threshold for detections
 CONFIDENCE_THRESHOLD = 0.2
 
+# --------------------------------------------------------------------------
+# Cropped Inference Configuration
+# --------------------------------------------------------------------------
+
+# Analyzes only the right-side portion of the chart (e.g., 0.5 = 50%, 0.3 = 30%)
+CROP_INFERENCE_RATIO = 0.5
+
+# Save the intermediate cropped image for debugging/verification
+SAVE_CROP_IMAGES = True
+
 # Box must be in the rightmost 15% of the chart to be considered "recent/active"
 RECENCY_THRESHOLD_PERCENT = 0.15
 
