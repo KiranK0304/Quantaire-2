@@ -107,9 +107,13 @@ def draw_and_save(
         # ------------------------------------------------------------------
         # Save annotated image
         # ------------------------------------------------------------------
-        save_dir = output_dir or ANNOTATED_DIR
+        timeframe = detection.get("timeframe", "1D")
+        is_recent = detection.get("is_recent", False)
+        subfolder = "recent" if is_recent else "historical"
+
+        save_dir = output_dir or (ANNOTATED_DIR / timeframe / subfolder)
         save_dir.mkdir(parents=True, exist_ok=True)
-        output_path = save_dir / f"{ticker}_detected.png"
+        output_path = save_dir / f"{ticker}_{timeframe}_detected.png"
 
         cv2.imwrite(str(output_path), img)
         return str(output_path)

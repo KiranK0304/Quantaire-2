@@ -23,6 +23,12 @@ MODEL_PATH = PROJECT_ROOT / "stockmarket-pattern-detection-yolov8" / "model.pt"
 # Minimum confidence threshold for detections
 CONFIDENCE_THRESHOLD = 0.2
 
+# Box must be in the rightmost 15% of the chart to be considered "recent/active"
+RECENCY_THRESHOLD_PERCENT = 0.15
+
+# Timeframes to scan during batch execution
+TIMEFRAMES_TO_SCAN = ["1D", "1W", "1h"]
+
 # --------------------------------------------------------------------------
 # Input / Output Directories
 # --------------------------------------------------------------------------
@@ -35,3 +41,4 @@ ANALYZED_DIR = SCREENSHOTS_DIR / "analyzed"
 OUTPUTS_DIR = PROJECT_ROOT / "outputs"
 ANNOTATED_DIR = OUTPUTS_DIR / "annotated"
 LOGS_DIR = OUTPUTS_DIR / "logs"
+SINGLE_STOCK_DIR = OUTPUTS_DIR / "single_stock"

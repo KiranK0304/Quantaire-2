@@ -1,26 +1,14 @@
 """
 postprocess.py — Detection post-processing helpers.
 
-Lightweight helper functions for:
-  - Selecting the rightmost/latest detection box
-  - Filtering low-confidence detections
-  - Converting YOLO output to a clean dictionary
+Helpers for selecting boxes, filtering confidences, and formatting JSON output.
 """
+
+from configs.settings import RECENCY_THRESHOLD_PERCENT
 
 
 def select_rightmost_box(boxes):
-    """
-    Select the rightmost (latest in time) detection box.
-
-    On a stock chart, the rightmost box corresponds to the most recent
-    pattern formation, which is what we care about.
-
-    Args:
-        boxes: YOLO boxes object (results[0].boxes).
-
-    Returns:
-        The single box with the largest x2 coordinate, or None if empty.
-    """
+    """Select the rightmost (latest in time) detection box."""
 
     if boxes is None or len(boxes) == 0:
         return None
@@ -31,16 +19,7 @@ def select_rightmost_box(boxes):
 
 
 def filter_by_confidence(boxes, min_conf: float = 0.2):
-    """
-    Filter detection boxes by minimum confidence threshold.
-
-    Args:
-        boxes:    YOLO boxes object.
-        min_conf: Minimum confidence score (default 0.2).
-
-    Returns:
-        List of boxes above the confidence threshold.
-    """
+    """Filter detection boxes by minimum confidence threshold."""
 
     if boxes is None or len(boxes) == 0:
         return []
@@ -48,28 +27,22 @@ def filter_by_confidence(boxes, min_conf: float = 0.2):
     return [b for b in boxes if float(b.conf[0]) >= min_conf]
 
 
-def box_to_dict(box, model_names: dict, ticker: str) -> dict:
-    """
-    Convert a single YOLO detection box into a clean dictionary.
-
-    Args:
-        box:         A single YOLO box object.
-        model_names: The model.names dict mapping class IDs to label strings.
-        ticker:      The stock ticker this detection belongs to.
-
-    Returns:
-        Dictionary with keys: ticker, label, confidence, box
-    """
-
+def box_to_dict(box, model_names: dict, ticker: str, timeframe: str = "1D", image_width: int = 1920) -> dict:
+    """Convert a single YOLO detection box into a clean dictionary."""
     cls_id = int(box.cls[0])
     conf = float(box.conf[0])
     label = model_names[cls_id]
 
     x1, y1, x2, y2 = map(int, box.xyxy[0])
 
+    # Check if the right edge of the box is within the recency threshold
+    is_recent = x2 >= image_width * (1.0 - RECENCY_THRESHOLD_PERCENT)
+
     return {
         "ticker": ticker,
+        "timeframe": timeframe,
         "label": label,
         "confidence": round(conf, 4),
         "box": [x1, y1, x2, y2],
+        "is_recent": is_recent,
     }

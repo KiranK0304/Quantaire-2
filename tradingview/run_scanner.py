@@ -14,7 +14,7 @@ import time
 import json
 from datetime import datetime
 
-from configs.settings import LOGS_DIR, SCREENSHOTS_DIR
+from configs.settings import LOGS_DIR, SCREENSHOTS_DIR, TIMEFRAMES_TO_SCAN
 
 from tradingview.browser import launch_browser, open_tradingview, close_browser
 from tradingview.capture import capture_ticker_chart
@@ -86,16 +86,7 @@ DELAY_BETWEEN_STOCKS = 2
 
 
 def run():
-    """
-    Main scanner loop.
-
-    Workflow for each ticker:
-      1. Search for the ticker
-      2. Set timeframe to Daily
-      3. Zoom out slightly for more candle visibility
-      4. Take a chart-only screenshot
-      5. Move on to the next ticker
-    """
+    """Main scanner loop across multiple timeframes."""
 
     print("=" * 60)
     print("  TradingView Chart Scanner — Starting")
@@ -110,64 +101,55 @@ def run():
     scanner_logs = []
 
     with sync_playwright() as playwright:
-
-        # Launch browser and open TradingView
         browser, context, page = launch_browser(playwright)
         open_tradingview(page)
 
-        for i, ticker in enumerate(STOCKS, start=1):
-            log_entry = {
-                "ticker": ticker,
-                "status": "success",
-                "reason": "OK"
-            }
+        for timeframe in TIMEFRAMES_TO_SCAN:
+            print(f"\n" + "=" * 60)
+            print(f"  Starting scan for Timeframe: {timeframe}")
+            print("=" * 60)
 
-            print(f"\n{'—' * 50}")
-            print(f"  [{i}/{len(STOCKS)}] Processing: {ticker}")
-            print(f"{'—' * 50}")
+            for i, ticker in enumerate(STOCKS, start=1):
+                log_entry = {
+                    "ticker": ticker,
+                    "timeframe": timeframe,
+                    "status": "success",
+                    "reason": "OK"
+                }
 
-            # 1. Try to capture normally
-            png_bytes = capture_ticker_chart(page, ticker)
+                print(f"\n{'—' * 50}")
+                print(f"  [{i}/{len(STOCKS)}] Processing: {ticker} ({timeframe})")
+                print(f"{'—' * 50}")
 
-            # 2. If it fails (likely due to signup overlay), launch fresh session
-            if not png_bytes:
-                print(f"  Capture failed for {ticker}. Launching fresh browser session and retrying...")
-                
-                # Force-close the blocked session
-                close_browser(browser)
-                
-                # Launch a brand new incognito session
-                browser, context, page = launch_browser(playwright)
-                open_tradingview(page)
-                
-                # Retry capture
-                png_bytes = capture_ticker_chart(page, ticker)
+                png_bytes = capture_ticker_chart(page, ticker, timeframe)
 
-            # 3. Process results
-            if png_bytes:
-                # Save the captured bytes to disk
-                SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
-                save_path = SCREENSHOTS_DIR / f"{ticker}.png"
-                save_path.write_bytes(png_bytes)
-                print(f"  ✅ Saved: {save_path}")
-                success.append(ticker)
-                
-                # If it succeeded on the retry, update the log entry status back to success
-                log_entry["status"] = "success"
-                log_entry["reason"] = "OK (after session recreation retry)"
-            else:
-                failed.append(ticker)
-                log_entry["status"] = "failed"
-                log_entry["reason"] = "Capture failed even after fresh session retry"
+                if not png_bytes:
+                    print(f"  Capture failed for {ticker}. Launching fresh browser session and retrying...")
+                    close_browser(browser)
+                    browser, context, page = launch_browser(playwright)
+                    open_tradingview(page)
+                    png_bytes = capture_ticker_chart(page, ticker, timeframe)
 
-            scanner_logs.append(log_entry)
+                if png_bytes:
+                    SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
+                    save_path = SCREENSHOTS_DIR / f"{ticker}_{timeframe}.png"
+                    save_path.write_bytes(png_bytes)
+                    print(f"  ✅ Saved: {save_path}")
+                    success.append(f"{ticker}_{timeframe}")
+                    
+                    log_entry["status"] = "success"
+                    log_entry["reason"] = "OK"
+                else:
+                    failed.append(f"{ticker}_{timeframe}")
+                    log_entry["status"] = "failed"
+                    log_entry["reason"] = "Capture failed even after retry"
 
-            # Pause before next ticker
-            if i < len(STOCKS):
-                print(f"  Waiting {DELAY_BETWEEN_STOCKS}s before next ticker...")
-                time.sleep(DELAY_BETWEEN_STOCKS)
+                scanner_logs.append(log_entry)
 
-        # Done — close the browser
+                if i < len(STOCKS):
+                    print(f"  Waiting {DELAY_BETWEEN_STOCKS}s before next ticker...")
+                    time.sleep(DELAY_BETWEEN_STOCKS)
+
         close_browser(browser)
 
     # ------------------------------------------------------------------
