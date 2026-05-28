@@ -31,7 +31,7 @@ CONFIDENCE_THRESHOLD = 0.2
 CROP_INFERENCE_RATIO = 0.5
 
 # Save the intermediate cropped image for debugging/verification
-SAVE_CROP_IMAGES = True
+SAVE_CROP_IMAGES = False
 
 # Box must be in the rightmost 15% of the chart to be considered "recent/active"
 RECENCY_THRESHOLD_PERCENT = 0.15

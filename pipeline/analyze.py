@@ -95,11 +95,6 @@ def analyze_single(ticker: str, timeframe: str = "1D", show_image: bool = False,
                         print(f"  ❌ Capture failed for range {dr}, skipping.")
                         continue
 
-                    # Save raw screenshot
-                    raw_path = run_folder / f"{ticker}_{dr}_raw.png"
-                    raw_path.write_bytes(png_bytes)
-                    print(f"  💾 Raw screenshot saved: {raw_path.name}")
-
                     img_array = cv2.imdecode(np.frombuffer(png_bytes, dtype=np.uint8), cv2.IMREAD_COLOR)
                     
                     # --- Cropped Inference Strategy ---
@@ -125,14 +120,13 @@ def analyze_single(ticker: str, timeframe: str = "1D", show_image: bool = False,
                         res["output_path"] = output_path
                         print(f"  ✅ Pattern: {res['label']} ({res['confidence']:.2f})")
                     else:
-                        res["output_path"] = str(raw_path)
-                        print(f"  ⚪ No pattern detected.")
+                        # Save the clean chart as the final output anyway
+                        output_path = run_folder / f"{ticker}_{dr}_detected.png"
+                        cv2.imwrite(str(output_path), img_array)
+                        res["output_path"] = str(output_path)
+                        print(f"  ⚪ No pattern detected. Clean chart saved.")
                         
                     results.append(res)
-                    
-                # Save JSON log for this run
-                with open(run_folder / "results.json", "w") as f:
-                    json.dump(results, f, indent=2)
                     
                 print("\n" + "=" * 60)
                 return results
