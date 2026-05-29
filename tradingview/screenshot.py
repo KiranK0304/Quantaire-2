@@ -18,7 +18,7 @@ from pathlib import Path
 SCREENSHOTS_DIR = Path(__file__).resolve().parent.parent / "screenshots"
 
 
-def take_chart_screenshot(page: Page, ticker: str) -> bool:
+async def take_chart_screenshot(page: Page, ticker: str) -> bool:
     """
     Capture a screenshot of ONLY the chart area on TradingView.
 
@@ -62,7 +62,7 @@ def take_chart_screenshot(page: Page, ticker: str) -> bool:
         for selector in chart_selectors:
             try:
                 locator = page.locator(selector)
-                if locator.count() > 0 and locator.first.is_visible():
+                if await locator.count() > 0 and await locator.first.is_visible():
                     chart_element = locator.first
                     print(f"[screenshot] Found chart using selector: {selector}")
                     break
@@ -77,12 +77,12 @@ def take_chart_screenshot(page: Page, ticker: str) -> bool:
 
         if chart_element:
             # Screenshot ONLY the chart container element
-            chart_element.screenshot(path=str(filepath))
+            await chart_element.screenshot(path=str(filepath))
             print(f"[screenshot] ✅ Saved chart screenshot: {filepath}")
         else:
             # Fallback: screenshot the full viewport if chart container not found
             print("[screenshot] WARNING: Chart container not found, taking full viewport screenshot.")
-            page.screenshot(path=str(filepath), full_page=False)
+            await page.screenshot(path=str(filepath), full_page=False)
             print(f"[screenshot] ✅ Saved full viewport screenshot: {filepath}")
 
         return True
@@ -92,7 +92,7 @@ def take_chart_screenshot(page: Page, ticker: str) -> bool:
         return False
 
 
-def capture_chart_to_bytes(page: Page) -> bytes | None:
+async def capture_chart_to_bytes(page: Page) -> bytes | None:
     """
     Capture a screenshot of the chart area and return it as PNG bytes.
 
@@ -120,8 +120,8 @@ def capture_chart_to_bytes(page: Page) -> bytes | None:
         for selector in chart_selectors:
             try:
                 locator = page.locator(selector)
-                if locator.count() > 0 and locator.first.is_visible():
-                    png_bytes = locator.first.screenshot()
+                if await locator.count() > 0 and await locator.first.is_visible():
+                    png_bytes = await locator.first.screenshot()
                     print(f"[screenshot] ✅ Chart captured in memory ({len(png_bytes)} bytes)")
                     return png_bytes
             except Exception:
@@ -129,7 +129,7 @@ def capture_chart_to_bytes(page: Page) -> bytes | None:
 
         # Fallback: full viewport screenshot
         print("[screenshot] WARNING: Chart container not found, capturing full viewport.")
-        png_bytes = page.screenshot(full_page=False)
+        png_bytes = await page.screenshot(full_page=False)
         return png_bytes
 
     except Exception as e:

@@ -12,7 +12,8 @@ import json
 import cv2
 import numpy as np
 from pathlib import Path
-from playwright.sync_api import sync_playwright
+from playwright.async_api import async_playwright
+import asyncio
 
 from configs.settings import ANALYZED_DIR, SINGLE_STOCK_DIR, CROP_INFERENCE_RATIO, SAVE_CROP_IMAGES
 from tradingview.browser import launch_browser, open_tradingview, close_browser
@@ -44,7 +45,7 @@ def _get_next_run_folder() -> Path:
     return run_dir
 
 
-def analyze_single(ticker: str, timeframe: str = "1D", show_image: bool = False, multi_range: bool = False) -> list[dict] | dict | None:
+async def analyze_single(ticker: str, timeframe: str = "1D", show_image: bool = False, multi_range: bool = False) -> list[dict] | dict | None:
     """Full pipeline for a single stock: screenshot → inference → annotated output."""
 
     ticker = ticker.strip().upper()
@@ -56,31 +57,21 @@ def analyze_single(ticker: str, timeframe: str = "1D", show_image: bool = False,
     # ------------------------------------------------------------------
     # Phase 1: Capture chart screenshot to memory
     # ------------------------------------------------------------------
-    print("\n  Phase 1: Capturing chart from TradingView...")
+    print("\n  Phase 1: Capturing chart from Market Data Provider...")
 
     png_bytes = None
 
-    with sync_playwright() as playwright:
-        browser, context, page = launch_browser(playwright)
+
+    async with async_playwright() as playwright:
+        browser, context, _ = await launch_browser(playwright)
 
         try:
-            open_tradingview(page)
-
             if multi_range:
                 ranges = ["1M", "3M", "6M", "1Y"]
-                results = []
                 run_folder = _get_next_run_folder()
                 print(f"\n  [info] Saving multi-range outputs to: {run_folder.name}")
 
-                # Search for the ticker ONCE
-                if not search_ticker(page, ticker):
-                    print(f"  ❌ Search failed for '{ticker}'.")
-                    return None
-
-                for dr in ranges:
-                    print(f"\n  --- Range: {dr} ---")
-                    
-                    # Determine candle timeframe based on date range
+                async def process_range(dr: str):
                     candle_tf = "1D"
                     if dr == "1M":
                         candle_tf = "15"
@@ -88,55 +79,60 @@ def analyze_single(ticker: str, timeframe: str = "1D", show_image: bool = False,
                         candle_tf = "1h"
                     elif dr == "6M":
                         candle_tf = "2h"
-                    
-                    # Only change the date range, no re-search
-                    png_bytes = capture_chart_range(page, dr, candle_tf)
-                    if not png_bytes:
-                        print(f"  ❌ Capture failed for range {dr}, skipping.")
-                        continue
 
-                    img_array = cv2.imdecode(np.frombuffer(png_bytes, dtype=np.uint8), cv2.IMREAD_COLOR)
-                    
-                    # --- Cropped Inference Strategy ---
-                    height, width = img_array.shape[:2]
-                    crop_start_x = int(width * (1.0 - CROP_INFERENCE_RATIO))
-                    crop_img = img_array[:, crop_start_x:]
-                    
-                    if SAVE_CROP_IMAGES:
-                        crop_path = run_folder / f"{ticker}_{dr}_crop.png"
-                        cv2.imwrite(str(crop_path), crop_img)
-                        print(f"  ✂️  Cropped image saved: {crop_path.name}")
+                    print(f"  --- Launching parallel capture for: {dr} ---")
+                    page = await context.new_page()
+                    try:
+                        await open_tradingview(page)
+                        png_data = await capture_ticker_chart(page, ticker, timeframe=candle_tf, date_range=dr)
                         
-                    # Run inference on the CROP
-                    res = run_inference(crop_img, ticker, timeframe=dr)
-                    
-                    if res["detected"]:
-                        # Map coordinates back to the full image
-                        res["box"][0] += crop_start_x
-                        res["box"][2] += crop_start_x
+                        if not png_data:
+                            print(f"  ❌ Capture failed for range {dr}.")
+                            return None
                         
-                        # Draw on the FULL image
-                        output_path = draw_and_save(img_array, res, output_dir=run_folder)
-                        res["output_path"] = output_path
-                        print(f"  ✅ Pattern: {res['label']} ({res['confidence']:.2f})")
-                    else:
-                        # Save the clean chart as the final output anyway
-                        output_path = run_folder / f"{ticker}_{dr}_detected.png"
-                        cv2.imwrite(str(output_path), img_array)
-                        res["output_path"] = str(output_path)
-                        print(f"  ⚪ No pattern detected. Clean chart saved.")
+                        img_array = cv2.imdecode(np.frombuffer(png_data, dtype=np.uint8), cv2.IMREAD_COLOR)
+                        height, width = img_array.shape[:2]
+                        crop_start_x = int(width * (1.0 - CROP_INFERENCE_RATIO))
+                        crop_img = img_array[:, crop_start_x:]
                         
-                    results.append(res)
-                    
+                        if SAVE_CROP_IMAGES:
+                            crop_path = run_folder / f"{ticker}_{dr}_crop.png"
+                            cv2.imwrite(str(crop_path), crop_img)
+                            
+                        res = run_inference(crop_img, ticker, timeframe=dr)
+                        if res["detected"]:
+                            res["box"][0] += crop_start_x
+                            res["box"][2] += crop_start_x
+                            output_path = draw_and_save(img_array, res, output_dir=run_folder)
+                            res["output_path"] = output_path
+                            print(f"  ✅ Pattern [{dr}]: {res['label']} ({res['confidence']:.2f})")
+                        else:
+                            output_path = run_folder / f"{ticker}_{dr}_detected.png"
+                            cv2.imwrite(str(output_path), img_array)
+                            res["output_path"] = str(output_path)
+                            print(f"  ⚪ No pattern [{dr}]. Clean chart saved.")
+                            
+                        return res
+                    finally:
+                        await page.close()
+
+                # Run all timeframes concurrently
+                tasks = [process_range(dr) for dr in ranges]
+                results = await asyncio.gather(*tasks)
+                
+                valid_results = [r for r in results if r is not None]
                 print("\n" + "=" * 60)
-                return results
+                return valid_results
 
             else:
                 # Original single timeframe logic
-                png_bytes = capture_ticker_chart(page, ticker, timeframe)
+                page = await context.new_page()
+                await open_tradingview(page)
+                png_bytes = await capture_ticker_chart(page, ticker, timeframe)
 
                 if png_bytes is None:
                     print("\n  ❌ FAILED: Could not capture chart screenshot.")
+                    await page.close()
                     return None
 
                 img_array = cv2.imdecode(np.frombuffer(png_bytes, dtype=np.uint8), cv2.IMREAD_COLOR)
@@ -192,10 +188,11 @@ def analyze_single(ticker: str, timeframe: str = "1D", show_image: bool = False,
 
                 print("=" * 55)
                 print()
+                await page.close()
                 return result
 
         finally:
-            close_browser(browser)
+            await close_browser(browser)
 
 
 def main():
@@ -215,7 +212,7 @@ def main():
     show_image = "--show" in flags
     multi_range = "--multi-range" in flags
 
-    analyze_single(ticker, timeframe=timeframe, show_image=show_image, multi_range=multi_range)
+    asyncio.run(analyze_single(ticker, timeframe=timeframe, show_image=show_image, multi_range=multi_range))
 
 
 if __name__ == "__main__":

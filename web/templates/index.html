@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="hero">
+  <div class="eyebrow">NEURAL MARKET PATTERN SCAN</div>
+
+  <h2 class="headline">
+    Detect market structures<br>using <em>AI-powered</em><br>chart analysis.
+  </h2>
+
+  <p class="subline">
+    Enter a ticker symbol below to capture charts and run pattern detection.
+  </p>
+
+  <form id="analyze-form" action="/analyze" method="post" onsubmit="document.getElementById('loading-overlay').style.display='flex'">
+      <div class="input-wrap">
+        <span class="ticker-icon"><i class="ti ti-search"></i></span>
+        <input type="text" name="ticker" placeholder="e.g. RELIANCE, TCS, INFY" required autocomplete="off" />
+        <button type="submit" class="btn">Analyze</button>
+      </div>
+  </form>
+
+  <div class="pills">
+    <span class="pill">Loading may take some time.</span>
+    <span class="pill">Educational and experimental output only.</span>
+    <span class="pill">Not financial advice.</span>
+  </div>
+</div>
+
+<hr class="sep" />
+
+<div class="footer-note">
+  <span class="fn-badge">SYSTEM NOTE</span>
+  <div>
+    <div class="fn-title">Prototype by Kiran</div>
+    <div class="fn-body">This scanner is an educational and experimental interface. Model output may be incomplete or incorrect, and it should not be treated as paid, certified, or financial advice.</div>
+  </div>
+</div>
+{% endblock %}
