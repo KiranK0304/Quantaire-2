@@ -13,22 +13,26 @@ from configs.settings import ANNOTATED_DIR
 
 
 # --------------------------------------------------------------------------
-# Drawing constants
+# Drawing constants & Colors
 # --------------------------------------------------------------------------
 
-# Colors (BGR format for OpenCV)
-BOX_COLOR = (255, 0, 255)       # Magenta — thick detection box
-LABEL_COLOR = (255, 0, 255)     # Magenta — label text
-TOP_LEFT_COLOR = (0, 255, 0)    # Green — top-left corner marker
-BOTTOM_RIGHT_COLOR = (0, 0, 255)  # Red — bottom-right corner marker
+# Define colors (BGR format for OpenCV)
+COLORS = {
+    "bullish": (100, 200, 100),   # Soft Green
+    "bearish": (100, 100, 255),   # Soft Red
+    "neutral": (255, 170, 100),   # Soft Blue
+    "default": (200, 200, 200)    # Gray
+}
 
-BOX_THICKNESS = 4
-CORNER_RADIUS = 8
-LABEL_FONT_SCALE = 1.0
-LABEL_THICKNESS = 3
-COORD_FONT_SCALE = 0.8
-COORD_THICKNESS = 2
-
+def get_pattern_color(label: str) -> tuple:
+    label_lower = label.lower()
+    if "bottom" in label_lower or "w_head" in label_lower:
+        return COLORS["bullish"]
+    elif "top" in label_lower or "m_head" in label_lower:
+        return COLORS["bearish"]
+    elif "triangle" in label_lower:
+        return COLORS["neutral"]
+    return COLORS["default"]
 
 def draw_and_save(
     image: str | Path | np.ndarray,
@@ -37,14 +41,6 @@ def draw_and_save(
 ) -> str | None:
     """
     Draw detection box, label, and coordinates on the image and save it.
-
-    Args:
-        image:      Path to the original chart screenshot, OR a numpy array (BGR).
-        detection:  Detection dict from inference.run_inference().
-        output_dir: Directory to save the annotated image. Defaults to ANNOTATED_DIR.
-
-    Returns:
-        Path to the saved annotated image, or None if no detection / error.
     """
 
     if not detection.get("detected"):
@@ -65,44 +61,43 @@ def draw_and_save(
         conf = detection["confidence"]
         x1, y1, x2, y2 = detection["box"]
 
-        # ------------------------------------------------------------------
-        # Draw detection box
-        # ------------------------------------------------------------------
-        cv2.rectangle(img, (x1, y1), (x2, y2), BOX_COLOR, BOX_THICKNESS)
+        color = get_pattern_color(label)
 
         # ------------------------------------------------------------------
-        # Draw corner circles
+        # 1. Draw Translucent Overlay
         # ------------------------------------------------------------------
-        cv2.circle(img, (x1, y1), CORNER_RADIUS, TOP_LEFT_COLOR, -1)
-        cv2.circle(img, (x2, y2), CORNER_RADIUS, BOTTOM_RIGHT_COLOR, -1)
+        overlay = img.copy()
+        cv2.rectangle(overlay, (x1, y1), (x2, y2), color, -1)
+        
+        # Blend overlay with original image
+        alpha = 0.25
+        cv2.addWeighted(overlay, alpha, img, 1 - alpha, 0, img)
+
+        # Draw a clean, thin solid border
+        cv2.rectangle(img, (x1, y1), (x2, y2), color, 2)
 
         # ------------------------------------------------------------------
-        # Draw label text above the box
+        # 2. Draw Label Badge
         # ------------------------------------------------------------------
-        label_text = f"{label} ({conf:.2f})"
-        cv2.putText(
-            img, label_text,
-            (x1, y1 - 15),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            LABEL_FONT_SCALE, LABEL_COLOR, LABEL_THICKNESS,
-        )
-
-        # ------------------------------------------------------------------
-        # Draw coordinate text at corners
-        # ------------------------------------------------------------------
-        cv2.putText(
-            img, f"({x1}, {y1})",
-            (x1 + 10, y1 + 30),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            COORD_FONT_SCALE, TOP_LEFT_COLOR, COORD_THICKNESS,
-        )
-
-        cv2.putText(
-            img, f"({x2}, {y2})",
-            (x2 - 160, y2 - 10),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            COORD_FONT_SCALE, BOTTOM_RIGHT_COLOR, COORD_THICKNESS,
-        )
+        label_text = f"{label} ({int(conf * 100)}%)"
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        font_scale = 0.7
+        thickness = 2
+        
+        # Get text size to draw the background box
+        (text_width, text_height), baseline = cv2.getTextSize(label_text, font, font_scale, thickness)
+        
+        padding = 8
+        badge_x1 = x1
+        badge_y1 = max(0, y1 - text_height - (padding * 2))
+        badge_x2 = x1 + text_width + (padding * 2)
+        badge_y2 = y1
+        
+        # Draw badge background
+        cv2.rectangle(img, (badge_x1, badge_y1), (badge_x2, badge_y2), color, -1)
+        
+        # Draw white text over the badge for high contrast
+        cv2.putText(img, label_text, (badge_x1 + padding, badge_y2 - padding), font, font_scale, (255, 255, 255), thickness)
 
         # ------------------------------------------------------------------
         # Save annotated image

@@ -28,7 +28,7 @@ SYMBOL_SEARCH_TITLE = "Symbol search"
 TOOL_SEARCH_TITLE = "Search tool or function"
 
 
-def _open_symbol_search(page: Page) -> bool:
+async def _open_symbol_search(page: Page) -> bool:
     """
     Open the Symbol Search dialog, regardless of whether we're on the
     homepage or the chart page.
@@ -52,38 +52,38 @@ def _open_symbol_search(page: Page) -> bool:
 
     symbol_btn = page.locator("#header-toolbar-symbol-search")
 
-    if symbol_btn.count() > 0 and symbol_btn.first.is_visible():
+    if await symbol_btn.count() > 0 and await symbol_btn.first.is_visible():
         print("[search] Clicking symbol search button (top-left toolbar)...")
-        symbol_btn.first.click()
-        page.wait_for_timeout(1000)
+        await symbol_btn.first.click()
+        await page.wait_for_timeout(1000)
 
         # Verify the correct dialog opened
-        if _is_symbol_search_open(page):
+        if await _is_symbol_search_open(page):
             return True
         else:
             # Wrong dialog somehow — close it and try fallback
-            page.keyboard.press("Escape")
-            page.wait_for_timeout(500)
+            await page.keyboard.press("Escape")
+            await page.wait_for_timeout(500)
 
     # ------------------------------------------------------------------
     # Method 2: Fallback — Ctrl+K (works on homepage, NOT on chart page)
     # ------------------------------------------------------------------
     print("[search] Symbol button not found, trying Ctrl+K...")
-    page.keyboard.press("Control+k")
-    page.wait_for_timeout(1000)
+    await page.keyboard.press("Control+k")
+    await page.wait_for_timeout(1000)
 
-    if _is_symbol_search_open(page):
+    if await _is_symbol_search_open(page):
         return True
 
     # If Ctrl+K opened the wrong dialog (tool search), close it
     print("[search] Ctrl+K opened the wrong dialog, closing...")
-    page.keyboard.press("Escape")
-    page.wait_for_timeout(500)
+    await page.keyboard.press("Escape")
+    await page.wait_for_timeout(500)
 
     return False
 
 
-def _is_symbol_search_open(page: Page) -> bool:
+async def _is_symbol_search_open(page: Page) -> bool:
     """
     Check if the currently open dialog is the Symbol Search dialog,
     NOT the "Search tool or function" dialog.
@@ -95,13 +95,13 @@ def _is_symbol_search_open(page: Page) -> bool:
 
     # Check for the symbol search input (unique to symbol search dialog)
     search_input = page.locator(f'input[placeholder="{SEARCH_INPUT_PLACEHOLDER}"]')
-    if search_input.count() > 0 and search_input.first.is_visible():
+    if await search_input.count() > 0 and await search_input.first.is_visible():
         return True
 
     return False
 
 
-def search_ticker(page: Page, ticker: str) -> bool:
+async def search_ticker(page: Page, ticker: str) -> bool:
     """
     Search for a stock ticker on TradingView and open its chart.
 
@@ -127,7 +127,7 @@ def search_ticker(page: Page, ticker: str) -> bool:
         # ------------------------------------------------------------------
         # Step 1 & 2: Open the Symbol Search dialog
         # ------------------------------------------------------------------
-        if not _open_symbol_search(page):
+        if not await _open_symbol_search(page):
             print(f"[search] ERROR: Could not open Symbol Search dialog for '{ticker}'.")
             return False
 
@@ -135,19 +135,19 @@ def search_ticker(page: Page, ticker: str) -> bool:
         # Step 3: Type the ticker into the search input
         # ------------------------------------------------------------------
         search_input = page.locator(f'input[placeholder="{SEARCH_INPUT_PLACEHOLDER}"]')
-        search_input.first.wait_for(state="visible", timeout=5000)
+        await search_input.first.wait_for(state="visible", timeout=5000)
 
         # Clear any existing text and type the ticker
-        search_input.first.fill("")
-        page.wait_for_timeout(300)
-        search_input.first.type(ticker, delay=80)  # human-like typing speed
+        await search_input.first.fill("")
+        await page.wait_for_timeout(300)
+        await search_input.first.type(ticker, delay=80)  # human-like typing speed
 
         print(f"[search] Typed '{ticker}', waiting for suggestions...")
 
         # ------------------------------------------------------------------
         # Step 4: Wait for dropdown results to populate
         # ------------------------------------------------------------------
-        page.wait_for_timeout(2000)
+        await page.wait_for_timeout(2000)
 
         # ------------------------------------------------------------------
         # Step 5: Click the first matching result
@@ -164,26 +164,26 @@ def search_ticker(page: Page, ticker: str) -> bool:
             page.locator('[class*="itemRow"]')
         )
 
-        if result_item.count() > 0:
-            result_item.first.click()
+        if await result_item.count() > 0:
+            await result_item.first.click()
             print(f"[search] Clicked first result for '{ticker}'.")
         else:
             # Fallback: press Enter to select the top result
             print(f"[search] No list items found, pressing Enter...")
-            search_input.first.press("Enter")
+            await search_input.first.press("Enter")
 
         # ------------------------------------------------------------------
         # Step 6: Wait for the chart to fully load
         # ------------------------------------------------------------------
-        page.wait_for_timeout(3000)
+        await page.wait_for_timeout(3000)
 
         # Confirm chart canvas is present and rendered
-        page.wait_for_selector("canvas", state="visible", timeout=10000)
+        await page.wait_for_selector("canvas", state="visible", timeout=10000)
 
         # ------------------------------------------------------------------
         # Step 7: Validate the loaded chart shows the correct ticker
         # ------------------------------------------------------------------
-        if not validate_loaded_ticker(page, ticker):
+        if not await validate_loaded_ticker(page, ticker):
             print(f"[search] WARNING: Chart may not be showing '{ticker}' — proceeding anyway.")
         else:
             print(f"[search] ✅ Validated: chart is showing '{ticker}'.")
@@ -195,15 +195,15 @@ def search_ticker(page: Page, ticker: str) -> bool:
 
         # Try to close any open dialog before returning
         try:
-            page.keyboard.press("Escape")
-            page.wait_for_timeout(500)
+            await page.keyboard.press("Escape")
+            await page.wait_for_timeout(500)
         except Exception:
             pass
 
         return False
 
 
-def validate_loaded_ticker(page: Page, expected_ticker: str) -> bool:
+async def validate_loaded_ticker(page: Page, expected_ticker: str) -> bool:
     """
     Verify that the chart is actually showing the stock we requested.
 
@@ -224,8 +224,8 @@ def validate_loaded_ticker(page: Page, expected_ticker: str) -> bool:
     try:
         # Method 1: Read the symbol button text in the top-left toolbar
         symbol_btn = page.locator("#header-toolbar-symbol-search")
-        if symbol_btn.count() > 0 and symbol_btn.first.is_visible():
-            loaded_symbol = symbol_btn.first.inner_text().strip().upper()
+        if await symbol_btn.count() > 0 and await symbol_btn.first.is_visible():
+            loaded_symbol = (await symbol_btn.first.inner_text()).strip().upper()
 
             if expected_ticker.upper() in loaded_symbol:
                 return True
@@ -238,8 +238,8 @@ def validate_loaded_ticker(page: Page, expected_ticker: str) -> bool:
         header = page.locator('[class*="headerTitle"]').or_(
             page.locator('[class*="symbolTitle"]')
         )
-        if header.count() > 0:
-            header_text = header.first.inner_text().strip().upper()
+        if await header.count() > 0:
+            header_text = (await header.first.inner_text()).strip().upper()
             if expected_ticker.upper() in header_text:
                 return True
 

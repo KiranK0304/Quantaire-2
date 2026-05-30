@@ -9,12 +9,13 @@ Usage:
     python -m tradingview.run_scanner
 """
 
-from playwright.sync_api import sync_playwright
+from playwright.async_api import async_playwright
+import asyncio
 import time
 import json
 from datetime import datetime
 
-from configs.settings import LOGS_DIR, SCREENSHOTS_DIR, TIMEFRAMES_TO_SCAN
+from configs.settings import LOGS_DIR, SCREENSHOTS_DIR, BATCH_DATE_RANGE, BATCH_CANDLE_TF
 
 from tradingview.browser import launch_browser, open_tradingview, close_browser
 from tradingview.capture import capture_ticker_chart
@@ -85,7 +86,7 @@ STOCKS = [
 DELAY_BETWEEN_STOCKS = 2
 
 
-def run():
+async def run():
     """Main scanner loop across multiple timeframes."""
 
     print("=" * 60)
@@ -100,57 +101,56 @@ def run():
     failed = []
     scanner_logs = []
 
-    with sync_playwright() as playwright:
-        browser, context, page = launch_browser(playwright)
-        open_tradingview(page)
+    async with async_playwright() as playwright:
+        browser, context, page = await launch_browser(playwright)
+        await open_tradingview(page)
 
-        for timeframe in TIMEFRAMES_TO_SCAN:
-            print(f"\n" + "=" * 60)
-            print(f"  Starting scan for Timeframe: {timeframe}")
-            print("=" * 60)
+        print(f"\n" + "=" * 60)
+        print(f"  Starting single-range batch scan: {BATCH_DATE_RANGE} with {BATCH_CANDLE_TF} candles")
+        print("=" * 60)
 
-            for i, ticker in enumerate(STOCKS, start=1):
-                log_entry = {
-                    "ticker": ticker,
-                    "timeframe": timeframe,
-                    "status": "success",
-                    "reason": "OK"
-                }
+        for i, ticker in enumerate(STOCKS, start=1):
+            log_entry = {
+                "ticker": ticker,
+                "timeframe": BATCH_DATE_RANGE,
+                "status": "success",
+                "reason": "OK"
+            }
 
-                print(f"\n{'—' * 50}")
-                print(f"  [{i}/{len(STOCKS)}] Processing: {ticker} ({timeframe})")
-                print(f"{'—' * 50}")
+            print(f"\n{'—' * 50}")
+            print(f"  [{i}/{len(STOCKS)}] Processing: {ticker} ({BATCH_DATE_RANGE})")
+            print(f"{'—' * 50}")
 
-                png_bytes = capture_ticker_chart(page, ticker, timeframe)
+            png_bytes = await capture_ticker_chart(page, ticker, timeframe=BATCH_CANDLE_TF, date_range=BATCH_DATE_RANGE)
 
-                if not png_bytes:
-                    print(f"  Capture failed for {ticker}. Launching fresh browser session and retrying...")
-                    close_browser(browser)
-                    browser, context, page = launch_browser(playwright)
-                    open_tradingview(page)
-                    png_bytes = capture_ticker_chart(page, ticker, timeframe)
+            if not png_bytes:
+                print(f"  Capture failed for {ticker}. Launching fresh browser session and retrying...")
+                await close_browser(browser)
+                browser, context, page = await launch_browser(playwright)
+                await open_tradingview(page)
+                png_bytes = await capture_ticker_chart(page, ticker, timeframe=BATCH_CANDLE_TF, date_range=BATCH_DATE_RANGE)
 
-                if png_bytes:
-                    SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
-                    save_path = SCREENSHOTS_DIR / f"{ticker}_{timeframe}.png"
-                    save_path.write_bytes(png_bytes)
-                    print(f"  ✅ Saved: {save_path}")
-                    success.append(f"{ticker}_{timeframe}")
-                    
-                    log_entry["status"] = "success"
-                    log_entry["reason"] = "OK"
-                else:
-                    failed.append(f"{ticker}_{timeframe}")
-                    log_entry["status"] = "failed"
-                    log_entry["reason"] = "Capture failed even after retry"
+            if png_bytes:
+                SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
+                save_path = SCREENSHOTS_DIR / f"{ticker}_{BATCH_DATE_RANGE}.png"
+                save_path.write_bytes(png_bytes)
+                print(f"  ✅ Saved: {save_path}")
+                success.append(f"{ticker}_{BATCH_DATE_RANGE}")
+                
+                log_entry["status"] = "success"
+                log_entry["reason"] = "OK"
+            else:
+                failed.append(f"{ticker}_{BATCH_DATE_RANGE}")
+                log_entry["status"] = "failed"
+                log_entry["reason"] = "Capture failed even after retry"
 
-                scanner_logs.append(log_entry)
+            scanner_logs.append(log_entry)
 
-                if i < len(STOCKS):
-                    print(f"  Waiting {DELAY_BETWEEN_STOCKS}s before next ticker...")
-                    time.sleep(DELAY_BETWEEN_STOCKS)
+            if i < len(STOCKS):
+                print(f"  Waiting {DELAY_BETWEEN_STOCKS}s before next ticker...")
+                await asyncio.sleep(DELAY_BETWEEN_STOCKS)
 
-        close_browser(browser)
+        await close_browser(browser)
 
     # ------------------------------------------------------------------
     # Save Scanner Logs
@@ -187,4 +187,4 @@ def run():
 
 
 if __name__ == "__main__":
-    run()
+    asyncio.run(run())

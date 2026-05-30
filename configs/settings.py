@@ -36,8 +36,9 @@ SAVE_CROP_IMAGES = False
 # Box must be in the rightmost 15% of the chart to be considered "recent/active"
 RECENCY_THRESHOLD_PERCENT = 0.15
 
-# Timeframes to scan during batch execution
-TIMEFRAMES_TO_SCAN = ["1D", "1W", "1h"]
+# Batch scanner configuration (Single screenshot per stock)
+BATCH_DATE_RANGE = "6M"
+BATCH_CANDLE_TF = "2h"
 
 # --------------------------------------------------------------------------
 # Input / Output Directories

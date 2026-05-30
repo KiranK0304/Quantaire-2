@@ -10,7 +10,7 @@ Handles:
   - Providing a persistent browser context for reuse across tickers
 """
 
-from playwright.sync_api import sync_playwright, Browser, Page, BrowserContext
+from playwright.async_api import async_playwright, Browser, Page, BrowserContext
 
 
 # --------------------------------------------------------------------------
@@ -26,7 +26,7 @@ VIEWPORT_WIDTH = 1920
 VIEWPORT_HEIGHT = 1080
 
 
-def launch_browser(playwright, headless: bool = True) -> tuple[Browser, BrowserContext, Page]:
+async def launch_browser(playwright, headless: bool = True) -> tuple[Browser, BrowserContext, Page]:
     """
     Launch a Chromium browser with a fixed viewport.
 
@@ -41,7 +41,7 @@ def launch_browser(playwright, headless: bool = True) -> tuple[Browser, BrowserC
     mode = "headless" if headless else "visible"
     print(f"[browser] Launching Chromium ({mode} mode)...")
 
-    browser = playwright.chromium.launch(
+    browser = await playwright.chromium.launch(
         headless=headless,
         args=[
             "--start-maximized",
@@ -50,7 +50,7 @@ def launch_browser(playwright, headless: bool = True) -> tuple[Browser, BrowserC
     )
 
     # Create a persistent context with a fixed viewport
-    context = browser.new_context(
+    context = await browser.new_context(
         viewport={"width": VIEWPORT_WIDTH, "height": VIEWPORT_HEIGHT},
         # Pretend to be a real user
         user_agent=(
@@ -59,12 +59,12 @@ def launch_browser(playwright, headless: bool = True) -> tuple[Browser, BrowserC
         ),
     )
 
-    page = context.new_page()
+    page = await context.new_page()
 
     return browser, context, page
 
 
-def open_tradingview(page: Page) -> None:
+async def open_tradingview(page: Page) -> None:
     """
     Navigate to TradingView CHART page and wait for it to fully load.
     We go to /chart/ directly because the search and timeframe shortcuts
@@ -72,29 +72,29 @@ def open_tradingview(page: Page) -> None:
     """
 
     print(f"[browser] Navigating to {TRADINGVIEW_CHART_URL} ...")
-    page.goto(TRADINGVIEW_CHART_URL, wait_until="domcontentloaded")
+    await page.goto(TRADINGVIEW_CHART_URL, wait_until="domcontentloaded")
 
     # Wait for the chart canvas to appear — this confirms the page is ready
     print("[browser] Waiting for chart to render...")
     try:
-        page.wait_for_selector("canvas", state="visible", timeout=20000)
+        await page.wait_for_selector("canvas", state="visible", timeout=20000)
     except Exception:
         # Sometimes TradingView is slow — reload and try once more
         print("[browser] Chart slow to load, reloading page...")
-        page.reload(wait_until="domcontentloaded")
-        page.wait_for_timeout(5000)
-        page.wait_for_selector("canvas", state="visible", timeout=25000)
+        await page.reload(wait_until="domcontentloaded")
+        await page.wait_for_timeout(5000)
+        await page.wait_for_selector("canvas", state="visible", timeout=25000)
 
     # Extra time for the heavy JS app to finish hydrating
-    page.wait_for_timeout(3000)
+    await page.wait_for_timeout(3000)
 
     # Dismiss any popups that TradingView shows on first visit
-    dismiss_popups(page)
+    await dismiss_popups(page)
 
-    print("[browser] TradingView chart page loaded.")
+    print("[browser] Chart page loaded.")
 
 
-def dismiss_popups(page: Page) -> None:
+async def dismiss_popups(page: Page) -> None:
     """
     Aggressively dismiss ALL types of popups/overlays that TradingView shows.
 
@@ -117,17 +117,17 @@ def dismiss_popups(page: Page) -> None:
     # ------------------------------------------------------------------
     # 1. "Got it!" tooltips (first-visit feature hints)
     # ------------------------------------------------------------------
-    dismissed_count += _try_click(page, "text=Got it!", "Got it! tooltip")
+    dismissed_count += await _try_click(page, "text=Got it!", "Got it! tooltip")
 
     # ------------------------------------------------------------------
     # 2. Cookie consent banners
     # ------------------------------------------------------------------
     # Various button texts used for cookie acceptance
-    dismissed_count += _try_click(page, "text=Accept all cookies", "cookie accept (Accept all cookies)")
-    dismissed_count += _try_click(page, "text=Accept All Cookies", "cookie accept (Accept All Cookies)")
-    dismissed_count += _try_click(page, "text=Accept all", "cookie accept (Accept all)")
-    dismissed_count += _try_click(page, "text=I agree", "cookie accept (I agree)")
-    dismissed_count += _try_click(page, "text=Accept", "cookie accept (Accept)")
+    dismissed_count += await _try_click(page, "text=Accept all cookies", "cookie accept (Accept all cookies)")
+    dismissed_count += await _try_click(page, "text=Accept All Cookies", "cookie accept (Accept All Cookies)")
+    dismissed_count += await _try_click(page, "text=Accept all", "cookie accept (Accept all)")
+    dismissed_count += await _try_click(page, "text=I agree", "cookie accept (I agree)")
+    dismissed_count += await _try_click(page, "text=Accept", "cookie accept (Accept)")
 
     # ------------------------------------------------------------------
     # 3. Login / Sign-up popup
@@ -137,29 +137,29 @@ def dismiss_popups(page: Page) -> None:
     # an X button to close it.
 
     # Close button on login modal (usually an SVG X icon)
-    dismissed_count += _try_click(
+    dismissed_count += await _try_click(
         page,
         '[data-dialog-name="signup"] button[aria-label="Close"]',
         "signup dialog close"
     )
-    dismissed_count += _try_click(
+    dismissed_count += await _try_click(
         page,
         '[data-dialog-name="login"] button[aria-label="Close"]',
         "login dialog close"
     )
 
     # Generic "No thanks" / "Maybe later" / "Not now" buttons
-    dismissed_count += _try_click(page, "text=No thanks", "No thanks button")
-    dismissed_count += _try_click(page, "text=Maybe later", "Maybe later button")
-    dismissed_count += _try_click(page, "text=Not now", "Not now button")
-    dismissed_count += _try_click(page, "text=No, thanks", "No, thanks button")
+    dismissed_count += await _try_click(page, "text=No thanks", "No thanks button")
+    dismissed_count += await _try_click(page, "text=Maybe later", "Maybe later button")
+    dismissed_count += await _try_click(page, "text=Not now", "Not now button")
+    dismissed_count += await _try_click(page, "text=No, thanks", "No, thanks button")
 
     # ------------------------------------------------------------------
     # 4. Upgrade / Premium banners
     # ------------------------------------------------------------------
-    dismissed_count += _try_click(page, "text=Maybe later", "upgrade maybe later")
-    dismissed_count += _try_click(page, "text=Continue with free plan", "continue free plan")
-    dismissed_count += _try_click(page, "text=Stay on Free", "stay on free")
+    dismissed_count += await _try_click(page, "text=Maybe later", "upgrade maybe later")
+    dismissed_count += await _try_click(page, "text=Continue with free plan", "continue free plan")
+    dismissed_count += await _try_click(page, "text=Stay on Free", "stay on free")
 
     # ------------------------------------------------------------------
     # 5. Generic close buttons on any visible modal/overlay
@@ -167,15 +167,15 @@ def dismiss_popups(page: Page) -> None:
     # Try aria-label="Close" buttons (most TradingView modals use this)
     try:
         close_btns = page.locator('[aria-label="Close"]')
-        count = close_btns.count()
+        count = await close_btns.count()
         for i in range(count):
             try:
                 btn = close_btns.nth(i)
-                if btn.is_visible():
-                    btn.click()
+                if await btn.is_visible():
+                    await btn.click()
                     dismissed_count += 1
                     print(f"[popups] Dismissed close button #{i+1}.")
-                    page.wait_for_timeout(300)
+                    await page.wait_for_timeout(300)
             except Exception:
                 continue
     except Exception:
@@ -190,10 +190,10 @@ def dismiss_popups(page: Page) -> None:
         ).or_(
             page.locator('[class*="dimmer"]')
         )
-        if overlays.count() > 0:
+        if await overlays.count() > 0:
             # Press Escape to close overlays
-            page.keyboard.press("Escape")
-            page.wait_for_timeout(500)
+            await page.keyboard.press("Escape")
+            await page.wait_for_timeout(500)
             dismissed_count += 1
             print("[popups] Pressed Escape to close overlay.")
     except Exception:
@@ -203,8 +203,8 @@ def dismiss_popups(page: Page) -> None:
     # 7. Final Escape press to close any remaining dialog
     # ------------------------------------------------------------------
     try:
-        page.keyboard.press("Escape")
-        page.wait_for_timeout(300)
+        await page.keyboard.press("Escape")
+        await page.wait_for_timeout(300)
     except Exception:
         pass
 
@@ -214,7 +214,7 @@ def dismiss_popups(page: Page) -> None:
         print("[popups] No popups found.")
 
 
-def _try_click(page: Page, selector: str, description: str) -> int:
+async def _try_click(page: Page, selector: str, description: str) -> int:
     """
     Try to find and click an element matching the selector.
     Returns 1 if clicked, 0 if not found or not visible.
@@ -223,21 +223,21 @@ def _try_click(page: Page, selector: str, description: str) -> int:
 
     try:
         element = page.locator(selector)
-        if element.count() > 0 and element.first.is_visible():
-            element.first.click()
+        if await element.count() > 0 and await element.first.is_visible():
+            await element.first.click()
             print(f"[popups] Dismissed: {description}")
-            page.wait_for_timeout(500)
+            await page.wait_for_timeout(500)
             return 1
     except Exception:
         pass
     return 0
 
 
-def close_browser(browser: Browser) -> None:
+async def close_browser(browser: Browser) -> None:
     """
     Gracefully close the browser.
     """
 
     print("[browser] Closing browser...")
-    browser.close()
+    await browser.close()
     print("[browser] Done.")

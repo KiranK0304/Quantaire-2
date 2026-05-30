@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="results-toolbar">
+    <div>
+        <p class="eyebrow">SCAN COMPLETE</p>
+        <h2>Analysis Results: {{ ticker }}</h2>
+    </div>
+    <a href="/" class="btn btn-link">New Search</a>
+</div>
+
+{% if error %}
+<div class="status-panel error-panel">
+    <h3>Error Analyzing Ticker</h3>
+    <p>{{ error }}</p>
+</div>
+{% endif %}
+
+{% set ns = namespace(found=false) %}
+<div class="results-grid">
+    {% for result in results %}
+    <div class="result-card {% if not result.detected %}empty-result{% endif %}">
+        <div class="result-header">
+            <h3>{{ result.timeframe }} Range</h3>
+            {% if result.detected %}
+            {% set ns.found = true %}
+            <span class="badge detected">
+                DETECTED / {{ result.label }} ({{ (result.confidence * 100)|round|int }}%)
+            </span>
+            {% else %}
+            <span class="badge muted">NO PATTERN</span>
+            {% endif %}
+        </div>
+
+        {% if result.detected %}
+        <div class="result-image-container" onclick="openModal('/{{ result.output_path }}')">
+            <img src="/{{ result.output_path }}" alt="{{ ticker }} {{ result.timeframe }} Chart">
+            <div class="expand-hint">Click to enlarge</div>
+        </div>
+        {% elif result.output_path %}
+        <div class="result-image-container no-detection-image" onclick="openModal('/{{ result.output_path }}')">
+            <img src="/{{ result.output_path }}"
+                alt="{{ ticker }} {{ result.timeframe }} Chart with no detected pattern">
+            <div class="no-pattern-overlay">
+                <span>NO PATTERN</span>
+                <strong>No pattern in this chart</strong>
+                <small>The model did not detect a recognizable setup for the {{ result.timeframe }} timeframe.</small>
+            </div>
+            <div class="expand-hint">Click to enlarge</div>
+        </div>
+        {% else %}
+        <div class="no-pattern-panel">
+            <pre aria-hidden="true">+------------------+
+|  NO SIGNAL       |
+|  {{ "%-14s"|format(result.timeframe ~ " RANGE") }} |
+|  PATTERN: NONE   |
++------------------+</pre>
+            <h4>No pattern in this chart</h4>
+            <p>{{ result.message or "The model did not detect a recognizable setup for this timeframe." }}</p>
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+
+{% if not ns.found and not error %}
+<div class="status-panel">
+    <h3>No Patterns Detected</h3>
+    <p>The model did not find any recognizable patterns in the 1M, 3M, 6M, or 1Y timeframes.</p>
+</div>
+{% endif %}
+
+<div class="status-panel disclaimer-panel">
+    <h3>Experimental Output</h3>
+    <p>Results may not be correct. This is an educational experiment, not a paid signal service or financial advice.</p>
+</div>
+
+<div id="imageModal" class="modal" onclick="closeModal()">
+    <span class="close-modal">&times;</span>
+    <img class="modal-content" id="expandedImg">
+</div>
+
+<script>
+    function openModal(imageSrc) {
+        const modal = document.getElementById("imageModal");
+        const img = document.getElementById("expandedImg");
+        modal.style.display = "flex";
+        img.src = imageSrc;
+    }
+
+    function closeModal() {
+        document.getElementById("imageModal").style.display = "none";
+    }
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key === "Escape") {
+            closeModal();
+        }
+    });
+</script>
+{% endblock %}

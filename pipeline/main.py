@@ -1,7 +1,7 @@
 """
 pipeline/main.py — Full pipeline orchestration.
 
-Runs the optional TradingView scanner, followed by YOLO detection on all screenshots.
+Runs the optional Market Data scanner, followed by YOLO detection on all screenshots.
 """
 
 import sys
@@ -29,7 +29,7 @@ def run_detection_pipeline() -> list[dict]:
 
     if not screenshots:
         print(f"\n  No screenshots found in {SCREENSHOTS_DIR}")
-        print("  Run the TradingView scanner first:")
+        print("  Run the Chart scanner first:")
         print("    uv run python -m tradingview.run_scanner")
         print("=" * 60)
         return []
@@ -152,12 +152,12 @@ def _save_results_log(results: list[dict]) -> None:
 
 def main():
     """
-    Entry point. Optionally runs the TradingView scanner first.
+    Entry point. Optionally runs the Chart scanner first.
     """
 
     # Check if --with-scanner flag is passed
     if "--with-scanner" in sys.argv:
-        print("[pipeline] Running TradingView scanner first...")
+        print("[pipeline] Running Chart scanner first...")
         from tradingview.run_scanner import run as run_scanner
         run_scanner()
 
