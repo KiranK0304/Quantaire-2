@@ -2,29 +2,71 @@
 
 from pathlib import Path
 from typing import Any
+from enum import Enum
+from pydantic import BaseModel, Field, field_validator
 
-from pydantic import BaseModel, Field
+
+class Period(str, Enum):
+    """Supported historical periods."""
+
+    DAY_1 = "1d"
+    DAY_5 = "5d"
+    MONTH_1 = "1mo"
+    MONTH_3 = "3mo"
+    MONTH_6 = "6mo"
+    YEAR_1 = "1y"
+    YEAR_2 = "2y"
+    YEAR_5 = "5y"
+
+
+class Interval(str, Enum):
+    """Supported market data intervals."""
+
+    MINUTE_1 = "1m"
+    MINUTE_2 = "2m"
+    MINUTE_5 = "5m"
+    MINUTE_15 = "15m"
+    MINUTE_30 = "30m"
+    MINUTE_60 = "60m"
+    MINUTE_90 = "90m"
+    HOUR_1 = "1h"
+    DAY_1 = "1d"
+    WEEK_1 = "1wk"
+    MONTH_1 = "1mo"
+    MONTH_3 = "3mo"
 
 
 class MarketDataRequest(BaseModel):
     """Request parameters for historical OHLCV market data retrieval."""
 
     ticker: str = Field(..., description="Stock ticker symbol to analyze.")
-    period: str = Field(default="6mo", description="Historical period to retrieve.")
-    interval: str = Field(default="1d", description="Market data interval.")
+    period: Period = Field(
+        default=Period.MONTH_6,
+        description="Historical period to retrieve.",
+    )
+    interval: Interval = Field(
+        default=Interval.DAY_1,
+        description="Market data interval.",
+    )
 
-    def normalized_ticker(self) -> str:
+    @field_validator("ticker")
+    @classmethod
+    def validate_ticker(cls, value: str) -> str:
         """
-        Return a normalized ticker symbol for downstream services.
+        Validate and normalize the ticker symbol.
+
+        Args:
+            value: Raw ticker provided by the caller.
 
         Returns:
-            Normalized ticker symbol.
+            Normalized ticker.
         """
-        # TODO: Strip surrounding whitespace from self.ticker.
-        # TODO: Convert the ticker into the canonical provider format.
-        # TODO: Return the normalized ticker to MarketDataFetcher.fetch().
-        pass
+        ticker = value.strip().upper()
 
+        if not ticker:
+            raise ValueError("Ticker cannot be empty.")
+
+        return ticker
 
 class ChartArtifact(BaseModel):
     """Metadata describing a generated candlestick chart image."""

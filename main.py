@@ -9,6 +9,28 @@ from app.services import PriceActionAnalysisService
 from app.utils.logging import configure_logging
 
 
+def collect_market_data_input() -> MarketDataRequest:
+    """
+    Collect and validate market data request parameters.
+
+    Returns:
+        A validated market data request.
+
+    Raises:
+        ValidationError:
+            If the provided input is invalid.
+    """
+    ticker = input("Ticker: ")
+    period = input("Period [6mo]: ") or "6mo"
+    interval = input("Interval [1d]: ") or "1d"
+
+    return MarketDataRequest(
+        ticker=ticker,
+        period=period,
+        interval=interval,
+    )
+
+
 def build_service(config: AppConfig) -> PriceActionAnalysisService:
     """
     Build the application service graph.
@@ -59,7 +81,7 @@ def main() -> None:
     logger = logging.getLogger(__name__)
     logger.info("Starting Price Action Analyzer.")
 
-    # TODO: Parse ticker and optional output path from command-line arguments.
+    request = collect_market_data_input()
 
     # TODO: Pass parsed values into analyze_ticker().
 
