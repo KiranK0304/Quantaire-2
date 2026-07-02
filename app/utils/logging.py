@@ -3,17 +3,30 @@
 import logging
 
 
+"""Logging configuration."""
+
+import logging
+
+
 def configure_logging(level: int = logging.INFO) -> None:
     """
-    Configure application logging.
+    Configure application-wide logging.
+
+    This function should be called exactly once during application startup
+    before any business logic executes.
 
     Args:
-        level: Logging level to apply to the application logger.
+        level: Minimum logging level for the application.
 
     Returns:
         None.
     """
-    # TODO: Receive logging level from main.main() or AppConfig.
-    # TODO: Configure application logging before service execution starts.
-    # TODO: Return control to the caller without producing output.
-    pass
+    # Prevent duplicate handlers if called multiple times.
+    if logging.getLogger().handlers:
+        return
+
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )

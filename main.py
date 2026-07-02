@@ -1,10 +1,12 @@
 """Command-line entrypoint skeleton for the stock price action analyzer."""
 
+import logging
 from pathlib import Path
 
 from app.config import AppConfig
 from app.models import MarketDataRequest
 from app.services import PriceActionAnalysisService
+from app.utils.logging import configure_logging
 
 
 def build_service(config: AppConfig) -> PriceActionAnalysisService:
@@ -46,16 +48,22 @@ def analyze_ticker(ticker: str, output_path: Path | None = None) -> None:
 
 def main() -> None:
     """
-    Run the application entrypoint.
+    Run the application entry point.
 
     Returns:
         None.
     """
-    # TODO: Configure logging before any workflow starts.
-    # TODO: Parse ticker and optional output path from command-line arguments.
-    # TODO: Pass parsed values into analyze_ticker().
-    pass
+    # Configure application-wide logging.
+    configure_logging()
 
+    logger = logging.getLogger(__name__)
+    logger.info("Starting Price Action Analyzer.")
+
+    # TODO: Parse ticker and optional output path from command-line arguments.
+
+    # TODO: Pass parsed values into analyze_ticker().
+
+    logger.info("Application finished.")
 
 if __name__ == "__main__":
     main()
