@@ -1,0 +1,11 @@
+pandas
+numpy
+yfinance
+mplfinance
+matplotlib
+opencv-python
+pydantic
+fastapi
+torch
+transformers
+
