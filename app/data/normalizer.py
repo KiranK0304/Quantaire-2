@@ -1,24 +1,25 @@
-"""Market data normalization skeletons."""
+"""Market data normalization."""
 
 from typing import TYPE_CHECKING
 
+import pandas as pd
+
 if TYPE_CHECKING:
-    import pandas as pd
+    pass
 
 
 class MarketDataNormalizer:
-    """Normalize provider-specific market data into the project OHLCV schema."""
+    """Normalize provider-specific market data into the project's OHLCV schema."""
 
-    def __init__(self, required_columns: tuple[str, ...] | None = None) -> None:
-        """
-        Create a market data normalizer.
+    REQUIRED_COLUMNS = (
+        "Open",
+        "High",
+        "Low",
+        "Close",
+        "Volume",
+    )
 
-        Args:
-            required_columns: Optional required OHLCV column names.
-        """
-        self.required_columns = required_columns or ("Open", "High", "Low", "Close", "Volume")
-
-    def normalize(self, data: "pd.DataFrame") -> "pd.DataFrame":
+    def normalize(self, data: pd.DataFrame) -> pd.DataFrame:
         """
         Normalize raw market data.
 
@@ -26,53 +27,82 @@ class MarketDataNormalizer:
             data: Raw OHLCV data from a market data provider.
 
         Returns:
-            Clean OHLCV data using the expected project schema.
+            Normalized OHLCV data.
         """
-        # TODO: Receive raw data from MarketDataFetcher.fetch().
-        # TODO: Call self._validate_required_columns(data) before transformations.
-        # TODO: Call self._drop_incomplete_rows(data) to remove unusable rows.
-        # TODO: Call self._standardize_column_order(data) to produce the expected schema.
-        # TODO: Return normalized data to CandlestickChartGenerator.generate_chart().
-        pass
+        data = self._flatten_columns(data)
+        self._validate_required_columns(data)
+        data = self._drop_incomplete_rows(data)
+        data = self._standardize_column_order(data)
+        data = self._sort_by_date(data)
 
-    def _validate_required_columns(self, data: "pd.DataFrame") -> None:
+        return data
+
+    def _flatten_columns(self, data: pd.DataFrame) -> pd.DataFrame:
+        """
+        Flatten provider-specific MultiIndex columns.
+
+        Args:
+            data: Raw provider data.
+
+        Returns:
+            DataFrame with one-dimensional column names.
+        """
+        if isinstance(data.columns, pd.MultiIndex):
+            data = data.copy()
+            data.columns = data.columns.get_level_values(0)
+
+        return data
+
+    def _validate_required_columns(self, data: pd.DataFrame) -> None:
         """
         Validate that all required OHLCV columns are present.
 
         Args:
-            data: Raw or partially normalized market data.
+            data: Market data.
 
-        Returns:
-            None.
+        Raises:
+            ValueError:
+                If one or more required columns are missing.
         """
-        # TODO: Compare data columns with self.required_columns.
-        # TODO: Raise a validation error when required OHLCV columns are missing.
-        pass
+        missing = set(self.REQUIRED_COLUMNS) - set(data.columns)
 
-    def _drop_incomplete_rows(self, data: "pd.DataFrame") -> "pd.DataFrame":
+        if missing:
+            raise ValueError(
+                f"Missing required market data columns: {sorted(missing)}"
+            )
+
+    def _drop_incomplete_rows(self, data: pd.DataFrame) -> pd.DataFrame:
         """
-        Remove rows that cannot be used for chart generation.
+        Remove incomplete OHLCV rows.
 
         Args:
-            data: Market data that may contain incomplete OHLCV rows.
+            data: Market data.
 
         Returns:
-            Market data with incomplete rows removed.
+            Clean market data.
         """
-        # TODO: Remove rows with missing OHLCV values.
-        # TODO: Return cleaned data to normalize().
-        pass
+        return data.dropna(subset=self.REQUIRED_COLUMNS)
 
-    def _standardize_column_order(self, data: "pd.DataFrame") -> "pd.DataFrame":
+    def _standardize_column_order(self, data: pd.DataFrame) -> pd.DataFrame:
         """
-        Reorder market data columns into the project OHLCV schema.
+        Reorder columns into the project's OHLCV schema.
 
         Args:
-            data: Validated market data.
+            data: Market data.
 
         Returns:
-            Market data using the configured required column order.
+            Ordered market data.
         """
-        # TODO: Select columns using self.required_columns.
-        # TODO: Return ordered data to normalize().
-        pass
+        return data.loc[:, self.REQUIRED_COLUMNS]
+
+    def _sort_by_date(self, data: pd.DataFrame) -> pd.DataFrame:
+        """
+        Ensure market data is ordered chronologically.
+
+        Args:
+            data: Market data.
+
+        Returns:
+            Chronologically ordered market data.
+        """
+        return data.sort_index()

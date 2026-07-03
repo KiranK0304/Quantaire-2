@@ -1,8 +1,8 @@
-"""Historical market data retrieval skeletons."""
+"""Historical market data retrieval."""
 
+import yfinance as yf
 from typing import TYPE_CHECKING
 
-from app.data.validator import TickerValidator
 from app.models import MarketDataRequest
 
 if TYPE_CHECKING:
@@ -12,48 +12,58 @@ if TYPE_CHECKING:
 class MarketDataFetcher:
     """Fetch historical OHLCV data from the configured market data provider."""
 
-    def __init__(self, validator: TickerValidator | None = None) -> None:
+    def __init__(self) -> None:
         """
         Create a market data fetcher.
-
-        Args:
-            validator: Optional ticker validator used before data retrieval.
         """
-        self.validator = validator or TickerValidator()
+        pass
 
     def fetch(self, request: MarketDataRequest) -> "pd.DataFrame":
         """
-        Fetch historical market data for a ticker.
+        Fetch historical market data.
 
         Args:
-            request: Market data request parameters.
+            request: Validated market data request.
 
         Returns:
-            Historical OHLCV data as a pandas DataFrame.
+            Raw historical OHLCV data from the provider.
         """
-        # TODO: Call request.normalized_ticker() to prepare the provider symbol.
-        # TODO: Pass the normalized ticker into self.validator.validate().
-        # TODO: Call self._download_from_provider(validated_ticker, request.period, request.interval).
-        # TODO: Return raw OHLCV data to PriceActionAnalysisService.analyze_ticker().
-        pass
+        return self._download_market_data(
+            ticker=request.ticker,
+            period=request.period.value,
+            interval=request.interval.value,
+        )
 
-    def _download_from_provider(
+    def _download_market_data(
         self,
         ticker: str,
         period: str,
         interval: str,
     ) -> "pd.DataFrame":
         """
-        Download historical OHLCV data from the market data provider.
+        Download historical market data from the configured provider.
 
         Args:
             ticker: Validated ticker symbol.
-            period: Historical period requested.
-            interval: Historical data interval requested.
+            period: Historical data period.
+            interval: Historical data interval.
 
         Returns:
-            Provider-specific raw OHLCV data.
+            Provider-specific OHLCV data as a pandas DataFrame.
+
+        Raises:
+            ValueError:
+                If no market data is returned.
         """
-        # TODO: Call yfinance with ticker, period, and interval.
-        # TODO: Return provider data to fetch().
-        pass
+        data = yf.download(
+            tickers=ticker,
+            period=period,
+            interval=interval,
+            progress=False,
+            auto_adjust=False,
+        )
+
+        if data.empty:
+            raise ValueError(f"No market data found for ticker '{ticker}'.")
+
+        return data
