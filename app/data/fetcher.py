@@ -30,6 +30,8 @@ class MarketDataFetcher:
         """
         return self._download_market_data(
             ticker=request.ticker,
+            start=request.start_date,
+            end=request.end_date,
             period=request.period.value,
             interval=request.interval.value,
         )
@@ -37,6 +39,8 @@ class MarketDataFetcher:
     def _download_market_data(
         self,
         ticker: str,
+        start: object | None,
+        end: object | None,
         period: str,
         interval: str,
     ) -> "pd.DataFrame":
@@ -57,10 +61,12 @@ class MarketDataFetcher:
         """
         data = yf.download(
             tickers=ticker,
-            period=period,
             interval=interval,
             progress=False,
             auto_adjust=False,
+            start=start,
+            end=end,
+            period=period if start is None or end is None else None,
         )
 
         if data.empty:
