@@ -51,10 +51,16 @@ class PriceActionAnalysisService:
         Returns:
             Structured market analysis report.
         """
-        # TODO: Call self.data_fetcher.fetch(request) to retrieve raw OHLCV data.
-        # TODO: Pass raw data into self.data_normalizer.normalize(raw_data).
-        # TODO: Pass normalized data into self.chart_generator.generate_chart().
-        # TODO: Pass ChartArtifact.image_path into self.pattern_detector.detect_patterns().
-        # TODO: Pass request.ticker and detections into self.analysis_engine.generate_report().
-        # TODO: Return the final AnalysisReport to main.analyze_ticker() or future API layer.
-        pass
+        raw_data = self.data_fetcher.fetch(request)
+        normalized_data = self.data_normalizer.normalize(raw_data)
+        chart_artifact = self.chart_generator.generate_chart(
+            data=normalized_data,
+            ticker=request.ticker,
+            output_path=chart_output_path,
+        )
+        detections = self.pattern_detector.detect_patterns(chart_artifact.image_path)
+        report = self.analysis_engine.generate_report(
+            ticker=request.ticker,
+            detections=detections,
+        )
+        return report

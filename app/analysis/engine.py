@@ -8,7 +8,6 @@ class AnalysisEngine:
 
     def __init__(self) -> None:
         """Create an analysis engine."""
-        # TODO: Initialize future analysis configuration when implementation begins.
         pass
 
     def generate_report(
@@ -26,12 +25,15 @@ class AnalysisEngine:
         Returns:
             Structured market analysis report.
         """
-        # TODO: Receive detections from PatternDetector.detect_patterns().
-        # TODO: Call self._summarize_patterns(detections) to produce report summary text.
-        # TODO: Call self._build_report_metadata(detections) for structured report metadata.
-        # TODO: Build AnalysisReport with ticker, summary, detections, and metadata.
-        # TODO: Return the report to PriceActionAnalysisService.analyze_ticker().
-        pass
+        summary = self._summarize_patterns(detections)
+        metadata = self._build_report_metadata(detections)
+
+        return AnalysisReport(
+            ticker=ticker,
+            summary=summary,
+            detections=detections,
+            metadata=metadata,
+        )
 
     def _summarize_patterns(self, detections: list[PatternDetection]) -> str:
         """
@@ -43,10 +45,17 @@ class AnalysisEngine:
         Returns:
             Concise market structure summary.
         """
-        # TODO: Inspect PatternDetection.name and PatternDetection.confidence values.
-        # TODO: Group relevant bullish, bearish, and neutral observations.
-        # TODO: Return summary text to generate_report().
-        pass
+        if not detections:
+            return "No supported price-action patterns were detected."
+
+        pattern_parts: list[str] = []
+        for detection in detections:
+            if detection.confidence is None:
+                pattern_parts.append(detection.name)
+            else:
+                pattern_parts.append(f"{detection.name} ({detection.confidence:.2f})")
+
+        return "Detected patterns: " + ", ".join(pattern_parts) + "."
 
     def _build_report_metadata(self, detections: list[PatternDetection]) -> dict[str, object]:
         """
@@ -58,6 +67,19 @@ class AnalysisEngine:
         Returns:
             Structured metadata for the analysis report.
         """
-        # TODO: Count detections and summarize confidence availability.
-        # TODO: Return metadata to generate_report().
-        pass
+        confidences = [
+            detection.confidence
+            for detection in detections
+            if detection.confidence is not None
+        ]
+
+        metadata: dict[str, object] = {
+            "detection_count": len(detections),
+            "pattern_names": [detection.name for detection in detections],
+            "has_confidence": bool(confidences),
+        }
+
+        if confidences:
+            metadata["average_confidence"] = sum(confidences) / len(confidences)
+
+        return metadata

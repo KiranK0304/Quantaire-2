@@ -111,6 +111,7 @@ class MarketDataRequest(BaseModel):
 
         return ticker
 
+
 class ChartArtifact(BaseModel):
     """Metadata describing a generated candlestick chart image."""
 
@@ -125,9 +126,7 @@ class ChartArtifact(BaseModel):
         Returns:
             True when the chart image path exists, otherwise False.
         """
-        # TODO: Check self.image_path after CandlestickChartGenerator.generate_chart() writes it.
-        # TODO: Return the existence result to workflow validation code.
-        pass
+        return self.image_path.exists()
 
 
 class PatternDetection(BaseModel):
@@ -145,9 +144,7 @@ class PatternDetection(BaseModel):
         Returns:
             True when confidence is present, otherwise False.
         """
-        # TODO: Inspect self.confidence after PatternDetector parses model output.
-        # TODO: Return whether confidence can be displayed in the final report.
-        pass
+        return self.confidence is not None
 
 
 class AnalysisReport(BaseModel):
@@ -165,6 +162,4 @@ class AnalysisReport(BaseModel):
         Returns:
             Number of pattern detections attached to the report.
         """
-        # TODO: Count self.detections after AnalysisEngine.generate_report() builds the report.
-        # TODO: Return the count for UI or API presentation code.
-        pass
+        return len(self.detections)

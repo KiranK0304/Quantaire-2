@@ -13,7 +13,6 @@ def ensure_directory(path: Path) -> Path:
     Returns:
         The directory path.
     """
-    # TODO: Receive chart_output_dir from AppConfig or an explicit output path parent.
-    # TODO: Create the directory before chart generation writes files.
-    # TODO: Return the verified directory path to the caller.
-    pass
+    path = Path(path)
+    path.mkdir(parents=True, exist_ok=True)
+    return path

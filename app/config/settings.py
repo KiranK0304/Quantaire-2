@@ -23,7 +23,4 @@ class AppConfig(BaseModel):
         Returns:
             Path where the ticker chart should be written.
         """
-        # TODO: Receive ticker from main.analyze_ticker().
-        # TODO: Combine self.chart_output_dir with a deterministic ticker filename.
-        # TODO: Return chart path to PriceActionAnalysisService.analyze_ticker().
-        pass
+        return self.chart_output_dir / f"{ticker}.png"
