@@ -4,6 +4,8 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
+from app.exceptions import DataNormalizationError
+
 if TYPE_CHECKING:
     pass
 
@@ -67,7 +69,7 @@ class MarketDataNormalizer:
         missing = set(self.REQUIRED_COLUMNS) - set(data.columns)
 
         if missing:
-            raise ValueError(
+            raise DataNormalizationError(
                 f"Missing required market data columns: {sorted(missing)}"
             )
 

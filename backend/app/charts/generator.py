@@ -43,25 +43,29 @@ class CandlestickChartGenerator:
         Returns:
             Metadata for the generated chart image.
         """
-        self._validate_market_data(data)
+        try:
+            self._validate_market_data(data)
 
-        chart_title = self.style.title or self._build_chart_title(ticker)
-        image_path = self._render_chart(
-            data=data,
-            output_path=output_path,
-            chart_title=chart_title,
-        )
+            chart_title = self.style.title or self._build_chart_title(ticker)
+            image_path = self._render_chart(
+                data=data,
+                output_path=output_path,
+                chart_title=chart_title,
+            )
 
-        return ChartArtifact(
-            image_path=image_path,
-            ticker=ticker,
-            metadata={
-                "title": chart_title,
-                "style": self.style.style_name,
-                "volume": self.style.volume,
-                "rows": len(data),
-            },
-        )
+            return ChartArtifact(
+                image_path=image_path,
+                ticker=ticker,
+                metadata={
+                    "title": chart_title,
+                    "style": self.style.style_name,
+                    "volume": self.style.volume,
+                    "rows": len(data),
+                },
+            )
+        except Exception as e:
+            from app.exceptions import ChartGenerationError
+            raise ChartGenerationError(ticker) from e
 
     def _render_chart(
         self,

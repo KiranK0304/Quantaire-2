@@ -4,6 +4,7 @@ import yfinance as yf
 from typing import TYPE_CHECKING
 
 from app.schemas import MarketDataRequest
+from app.exceptions import MarketDataNotFoundError
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -64,6 +65,6 @@ class MarketDataFetcher:
         )
 
         if data.empty:
-            raise ValueError(f"No market data found for ticker '{ticker}'.")
+            raise MarketDataNotFoundError(ticker)
 
         return data

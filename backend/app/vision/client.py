@@ -35,8 +35,12 @@ class VisionModelClient:
         Returns:
             Raw provider-specific model output.
         """
-        image_payload = self._load_image(image_path)
-        return self._run_model(image_payload)
+        try:
+            image_payload = self._load_image(image_path)
+            return self._run_model(image_payload)
+        except Exception as e:
+            from app.exceptions import VisionInferenceError
+            raise VisionInferenceError(str(e)) from e
 
     def _load_image(self, image_path: Path) -> Path:
         """
