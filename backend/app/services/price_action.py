@@ -5,7 +5,7 @@ from pathlib import Path
 from app.analysis import AnalysisEngine
 from app.charts import CandlestickChartGenerator
 from app.data import MarketDataFetcher, MarketDataNormalizer
-from app.models import AnalysisReport, MarketDataRequest
+from app.schemas import AnalysisReport, MarketDataRequest
 from app.vision import PatternDetector
 
 
@@ -25,7 +25,7 @@ class PriceActionAnalysisService:
 
         Args:
             data_fetcher: Optional market data fetcher.
-            data_normalizer: Optional market data normalizer.
+            data_normalizer: Optioanalyze_tickernal market data normalizer.
             chart_generator: Optional candlestick chart generator.
             pattern_detector: Optional chart pattern detector.
             analysis_engine: Optional market analysis engine.

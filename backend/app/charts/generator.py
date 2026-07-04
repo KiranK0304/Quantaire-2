@@ -6,7 +6,7 @@ import mplfinance as mpf
 
 
 from app.charts.style import ChartStyle
-from app.models import ChartArtifact
+from app.schemas import ChartArtifact
 
 if TYPE_CHECKING:
     import pandas as pd

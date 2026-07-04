@@ -1,6 +1,6 @@
 """Market structure interpretation and structured report generation skeletons."""
 
-from app.models import AnalysisReport, PatternDetection
+from app.schemas import AnalysisReport, PatternDetection
 
 
 class AnalysisEngine:

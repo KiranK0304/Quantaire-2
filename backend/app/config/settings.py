@@ -5,10 +5,18 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 
 
+DEFAULT_CHART_OUTPUT_DIR = (
+    Path(__file__).resolve().parents[2] / "outputs" / "charts"
+)
+
+
 class AppConfig(BaseModel):
     """Application configuration separated from business logic."""
 
-    chart_output_dir: Path = Field(default=Path("outputs/charts"), description="Chart output directory.")
+    chart_output_dir: Path = Field(
+        default=DEFAULT_CHART_OUTPUT_DIR,
+        description="Chart output directory.",
+    )
     default_period: str = Field(default="6mo", description="Default historical data period.")
     default_interval: str = Field(default="1d", description="Default historical data interval.")
     vision_model_name: str | None = Field(default=None, description="Optional vision model identifier.")

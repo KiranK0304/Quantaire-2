@@ -35,7 +35,7 @@ class ChartStyle:
             "volume": self.volume,
             "figratio": (16, 9),
             "figscale": 1.2,
-            "ylabel": "Price",
+            "ylabel": "Price",  
             "ylabel_lower": "Volume",
             "tight_layout": True,
         }

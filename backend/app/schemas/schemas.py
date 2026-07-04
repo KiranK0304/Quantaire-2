@@ -1,44 +1,10 @@
 """Pydantic schemas shared across data, chart, vision, and analysis modules."""
 
-from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
-
-
-def _utc_now() -> datetime:
-    return datetime.now(timezone.utc)
-
-
-def _subtract_months(value: datetime, months: int) -> datetime:
-    year = value.year
-    month = value.month - months
-
-    while month <= 0:
-        month += 12
-        year -= 1
-
-    day = min(
-        value.day,
-        [
-            31,
-            29 if year % 4 == 0 and (year % 100 != 0 or year % 400 == 0) else 28,
-            31,
-            30,
-            31,
-            30,
-            31,
-            31,
-            30,
-            31,
-            30,
-            31,
-        ][month - 1],
-    )
-
-    return value.replace(year=year, month=month, day=day)
 
 
 class Period(str, Enum):
@@ -75,14 +41,6 @@ class MarketDataRequest(BaseModel):
     """Request parameters for historical OHLCV market data retrieval."""
 
     ticker: str = Field(..., description="Stock ticker symbol to analyze.")
-    start_date: datetime = Field(
-        default_factory=lambda: _subtract_months(_utc_now(), 2),
-        description="Start date for historical data retrieval.",
-    )
-    end_date: datetime = Field(
-        default_factory=_utc_now,
-        description="End date for historical data retrieval.",
-    )
     period: Period = Field(
         default=Period.MONTH_6,
         description="Historical period to retrieve.",

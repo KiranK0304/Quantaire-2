@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from app.models import PatternDetection
+from app.schemas import PatternDetection
 from app.vision.client import VisionModelClient
 
 
