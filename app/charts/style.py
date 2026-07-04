@@ -1,4 +1,4 @@
-"""Chart style configuration skeletons."""
+"""Chart style configuration for candlestick chart rendering."""
 
 
 class ChartStyle:
@@ -29,6 +29,13 @@ class ChartStyle:
         Returns:
             Keyword arguments for chart rendering.
         """
-        # TODO: Convert self.title, self.volume, and self.style_name into plotting options.
-        # TODO: Return options to CandlestickChartGenerator.generate_chart().
-        pass
+        return {
+            "type": "candle",
+            "style": self.style_name,
+            "volume": self.volume,
+            "figratio": (16, 9),
+            "figscale": 1.2,
+            "ylabel": "Price",
+            "ylabel_lower": "Volume",
+            "tight_layout": True,
+        }

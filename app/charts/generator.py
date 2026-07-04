@@ -1,7 +1,9 @@
-"""Candlestick chart generation skeletons."""
+"""Candlestick chart generation."""
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+import mplfinance as mpf
+
 
 from app.charts.style import ChartStyle
 from app.models import ChartArtifact
@@ -12,6 +14,8 @@ if TYPE_CHECKING:
 
 class CandlestickChartGenerator:
     """Generate candlestick chart images from normalized OHLCV data."""
+
+    REQUIRED_COLUMNS = ("Open", "High", "Low", "Close", "Volume")
 
     def __init__(self, style: ChartStyle | None = None) -> None:
         """
@@ -39,12 +43,25 @@ class CandlestickChartGenerator:
         Returns:
             Metadata for the generated chart image.
         """
-        # TODO: Receive normalized data from MarketDataNormalizer.normalize().
-        # TODO: Call self._build_chart_title(ticker) when style.title is not provided.
-        # TODO: Call self.style.to_mplfinance_kwargs() to prepare chart options.
-        # TODO: Call self._render_chart(data, output_path, chart_title) to export the PNG.
-        # TODO: Build and return ChartArtifact for PatternDetector.detect_patterns().
-        pass
+        self._validate_market_data(data)
+
+        chart_title = self.style.title or self._build_chart_title(ticker)
+        image_path = self._render_chart(
+            data=data,
+            output_path=output_path,
+            chart_title=chart_title,
+        )
+
+        return ChartArtifact(
+            image_path=image_path,
+            ticker=ticker,
+            metadata={
+                "title": chart_title,
+                "style": self.style.style_name,
+                "volume": self.style.volume,
+                "rows": len(data),
+            },
+        )
 
     def _render_chart(
         self,
@@ -63,10 +80,21 @@ class CandlestickChartGenerator:
         Returns:
             Path to the rendered chart image.
         """
-        # TODO: Render the candlestick chart with mplfinance.
-        # TODO: Save the rendered chart to output_path.
-        # TODO: Return output_path to generate_chart().
-        pass
+
+        output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        chart_options: dict[str, Any] = self.style.to_mplfinance_kwargs()
+        chart_options["title"] = chart_title
+        chart_options["savefig"] = {
+            "fname": output_path,
+            "dpi": 150,
+            "bbox_inches": "tight",
+        }
+
+        mpf.plot(data, **chart_options)
+
+        return output_path
 
     def _build_chart_title(self, ticker: str) -> str:
         """
@@ -78,6 +106,40 @@ class CandlestickChartGenerator:
         Returns:
             Chart title text.
         """
-        # TODO: Use ticker from generate_chart().
-        # TODO: Return the title text to generate_chart().
-        pass
+        return f"{ticker.upper()} Price Action"
+
+    def _validate_market_data(self, data: "pd.DataFrame") -> None:
+        """
+        Validate normalized market data before rendering.
+
+        Args:
+            data: Normalized OHLCV data.
+
+        Returns:
+            None.
+
+        Raises:
+            ValueError:
+                If the market data cannot be rendered as a candlestick chart.
+        """
+        if data.empty:
+            raise ValueError("Cannot generate chart from empty market data.")
+
+        try:
+            import pandas as pd
+        except ImportError as exc:
+            raise RuntimeError(
+                "pandas is required to validate and generate candlestick charts."
+            ) from exc
+
+        if not isinstance(data.index, pd.DatetimeIndex):
+            raise ValueError("Market data index must be a pandas DatetimeIndex.")
+
+        missing_columns = set(self.REQUIRED_COLUMNS) - set(data.columns)
+        if missing_columns:
+            raise ValueError(
+                f"Missing required chart columns: {sorted(missing_columns)}"
+            )
+
+        if data.index.hasnans:
+            raise ValueError("Market data index cannot contain missing dates.")
