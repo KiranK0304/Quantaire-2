@@ -1,40 +1,44 @@
-"""Vision model client skeletons for chart image analysis."""
+"""Vision model client for chart image pattern detection."""
 
 from pathlib import Path
+from typing import Any
 
-from app.models import PatternDetection
+
+DEFAULT_MODEL_PATH = (
+    Path(__file__).resolve().parents[2]
+    / "models"
+    / "foduucom_stockmarket_pattern_detection_yolov8"
+    / "model.pt"
+)
 
 
 class VisionModelClient:
-    """Replaceable interface for a vision-language model used to inspect chart images."""
+    """YOLO-backed client used to inspect chart images for price-action patterns."""
 
     def __init__(self, model_name: str | None = None) -> None:
         """
         Create a vision model client.
 
         Args:
-            model_name: Optional model identifier used by the vision backend.
+            model_name: Optional path to a YOLO model weights file.
         """
-        self.model_name = model_name
+        self.model_path = Path(model_name) if model_name else DEFAULT_MODEL_PATH
+        self._model: Any | None = None
 
-    def analyze_image(self, image_path: Path) -> list[PatternDetection]:
+    def analyze_image(self, image_path: Path) -> object:
         """
-        Analyze a chart image and return detected price action patterns.
+        Analyze a chart image and return raw model output.
 
         Args:
             image_path: Path to the chart image to inspect.
 
         Returns:
-            Detected technical patterns and optional confidence scores.
+            Raw provider-specific model output.
         """
-        # TODO: Receive ChartArtifact.image_path from PatternDetector.detect_patterns().
-        # TODO: Call self._load_image(image_path) to prepare the model input.
-        # TODO: Call self._run_model(image_payload) to obtain the raw response.
-        # TODO: Call self._parse_model_output(raw_output) to structure detections.
-        # TODO: Return detections to PatternDetector.detect_patterns().
-        pass
+        image_payload = self._load_image(image_path)
+        return self._run_model(image_payload)
 
-    def _load_image(self, image_path: Path) -> object:
+    def _load_image(self, image_path: Path) -> Path:
         """
         Load a chart image into the representation expected by the vision backend.
 
@@ -44,11 +48,16 @@ class VisionModelClient:
         Returns:
             Backend-ready image payload.
         """
-        # TODO: Read the chart image from image_path.
-        # TODO: Return the image payload to analyze_image().
-        pass
+        image_path = Path(image_path)
+        if not image_path.exists():
+            raise FileNotFoundError(f"Chart image does not exist: {image_path}")
 
-    def _run_model(self, image_payload: object) -> object:
+        if not image_path.is_file():
+            raise ValueError(f"Chart image path is not a file: {image_path}")
+
+        return image_path
+
+    def _run_model(self, image_payload: Path) -> object:
         """
         Run the configured vision model on a prepared image payload.
 
@@ -58,21 +67,30 @@ class VisionModelClient:
         Returns:
             Raw provider-specific model output.
         """
-        # TODO: Use self.model_name to select or configure the model.
-        # TODO: Return raw model output to analyze_image().
-        pass
+        model = self._get_model()
+        return model(str(image_payload), verbose=False)
 
-    def _parse_model_output(self, raw_output: object) -> list[PatternDetection]:
+    def _get_model(self) -> object:
         """
-        Parse raw model output into project pattern detections.
-
-        Args:
-            raw_output: Provider-specific model response.
+        Load and cache the configured YOLO model.
 
         Returns:
-            Structured pattern detections.
+            Loaded Ultralytics YOLO model.
         """
-        # TODO: Receive raw output from self._run_model().
-        # TODO: Extract pattern names, confidence scores, descriptions, and annotations.
-        # TODO: Return PatternDetection objects to analyze_image().
-        pass
+        if self._model is not None:
+            return self._model
+
+        if not self.model_path.exists():
+            raise FileNotFoundError(
+                f"Vision model weights not found: {self.model_path}"
+            )
+
+        try:
+            from ultralytics import YOLO
+        except ImportError as exc:
+            raise RuntimeError(
+                "ultralytics is required to run the vision model."
+            ) from exc
+
+        self._model = YOLO(str(self.model_path))
+        return self._model

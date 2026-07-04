@@ -1,4 +1,4 @@
-"""Technical pattern detection skeletons for chart images."""
+"""Technical pattern detection for chart images."""
 
 from pathlib import Path
 
@@ -8,6 +8,8 @@ from app.vision.client import VisionModelClient
 
 class PatternDetector:
     """Coordinate chart-image analysis and conversion into structured detections."""
+
+    MIN_CONFIDENCE = 0.25
 
     def __init__(self, vision_client: VisionModelClient | None = None) -> None:
         """
@@ -28,11 +30,47 @@ class PatternDetector:
         Returns:
             Structured pattern detections.
         """
-        # TODO: Receive ChartArtifact.image_path from PriceActionAnalysisService.analyze_ticker().
-        # TODO: Call self.vision_client.analyze_image(image_path) to inspect the chart.
-        # TODO: Call self._filter_supported_patterns(detections) to keep in-scope patterns.
-        # TODO: Return filtered detections to AnalysisEngine.generate_report().
-        pass
+        raw_output = self.vision_client.analyze_image(image_path)
+        detections = self._parse_model_output(raw_output)
+        return self._filter_supported_patterns(detections)
+
+    def _parse_model_output(self, raw_output: object) -> list[PatternDetection]:
+        """
+        Parse raw YOLO model output into project pattern detections.
+
+        Args:
+            raw_output: Provider-specific model response from VisionModelClient.
+
+        Returns:
+            Structured pattern detections.
+        """
+        results = list(raw_output)
+        if not results:
+            return []
+
+        result = results[0]
+        names = result.names
+        detections: list[PatternDetection] = []
+
+        for box in result.boxes:
+            class_id = int(box.cls[0].item())
+            class_name = names.get(class_id, str(class_id))
+            confidence = float(box.conf[0].item())
+            xyxy = [float(value) for value in box.xyxy[0].tolist()]
+
+            detections.append(
+                PatternDetection(
+                    name=class_name,
+                    confidence=confidence,
+                    description=f"Detected {class_name} pattern on the chart.",
+                    annotations={
+                        "class_id": class_id,
+                        "box_xyxy": xyxy,
+                    },
+                )
+            )
+
+        return detections
 
     def _filter_supported_patterns(
         self,
@@ -47,6 +85,8 @@ class PatternDetector:
         Returns:
             Pattern detections supported by the product scope.
         """
-        # TODO: Keep candlestick, support/resistance, trendline, and breakout patterns.
-        # TODO: Return supported detections to detect_patterns().
-        pass
+        return [
+            detection
+            for detection in detections
+            if detection.confidence is None or detection.confidence >= self.MIN_CONFIDENCE
+        ]
