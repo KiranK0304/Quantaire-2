@@ -17,6 +17,8 @@ Thumbs.db
 
 .env
 
+outputs/
+
 logs/
 *.log
 
@@ -35,9 +37,10 @@ dist/
 charts/
 *.png
 
+tests/
 tmp/
 temp/
 *.tmp
 
 *.db
-*.sqlite3
+*.sqlite3outputs
