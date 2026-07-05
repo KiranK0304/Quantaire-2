@@ -121,3 +121,45 @@ class AnalysisReport(BaseModel):
             Number of pattern detections attached to the report.
         """
         return len(self.detections)
+
+    
+class StockInfo(BaseModel):
+    """Detailed company and stock information retrieved from Yahoo Finance."""
+
+    # General Info
+    long_name: str | None = Field(default=None, description="Full company name.")
+    sector: str | None = Field(default=None, description="Company sector.")
+    industry: str | None = Field(default=None, description="Company industry.")
+    summary: str | None = Field(default=None, description="Long business summary.")
+    website: str | None = Field(default=None, description="Company website URL.")
+    currency: str | None = Field(default=None, description="Trading currency.")
+    
+    # Daily Price Action
+    previous_close: float | None = Field(default=None, description="Previous day's close price.")
+    open_price: float | None = Field(default=None, description="Today's open price.")
+    day_low: float | None = Field(default=None, description="Today's low price.")
+    day_high: float | None = Field(default=None, description="Today's high price.")
+    volume: int | None = Field(default=None, description="Today's trading volume.")
+    average_volume: int | None = Field(default=None, description="Average trading volume.")
+    
+    # Technical & Moving Averages
+    fifty_two_week_high: float | None = Field(default=None, description="52-week high price.")
+    fifty_two_week_low: float | None = Field(default=None, description="52-week low price.")
+    fifty_day_average: float | None = Field(default=None, description="50-day moving average.")
+    two_hundred_day_average: float | None = Field(default=None, description="200-day moving average.")
+    
+    # Valuation & Dividends
+    market_cap: int | None = Field(default=None, description="Market capitalization.")
+    enterprise_value: int | None = Field(default=None, description="Enterprise value.")
+    trailing_pe: float | None = Field(default=None, description="Trailing price-to-earnings ratio.")
+    forward_pe: float | None = Field(default=None, description="Forward price-to-earnings ratio.")
+    price_to_book: float | None = Field(default=None, description="Price to book ratio.")
+    dividend_yield: float | None = Field(default=None, description="Dividend yield percentage.")
+    
+    # Financial Health & Growth
+    profit_margins: float | None = Field(default=None, description="Profit margins.")
+    operating_margins: float | None = Field(default=None, description="Operating margins.")
+    return_on_equity: float | None = Field(default=None, description="Return on equity.")
+    revenue_growth: float | None = Field(default=None, description="Revenue growth.")
+    earnings_growth: float | None = Field(default=None, description="Earnings growth.")
+    debt_to_equity: float | None = Field(default=None, description="Debt to equity ratio.")

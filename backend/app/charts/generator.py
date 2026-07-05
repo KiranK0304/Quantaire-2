@@ -1,5 +1,8 @@
 """Candlestick chart generation."""
 
+import matplotlib
+matplotlib.use('Agg')
+
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 import mplfinance as mpf

@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { analyzeTicker, getChartUrl } from '../services/api';
-import type { AnalysisResponse } from '../services/api';
-import { SearchBar } from '../components/SearchBar';
+import { analyzeTicker, getChartUrl, fetchStockInfo } from '../services/api';
+import type { AnalysisResponse, StockInfo } from '../services/api';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { PatternCard } from '../components/PatternCard';
+import { StockMetrics } from '../components/StockMetrics';
 
 interface AnalysisProps {
   initialTicker: string;
@@ -14,16 +14,23 @@ export const Analysis: React.FC<AnalysisProps> = ({ initialTicker, onBack }) => 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<AnalysisResponse | null>(null);
+  const [stockInfo, setStockInfo] = useState<StockInfo | null>(null);
   const [modalImage, setModalImage] = useState<string | null>(null);
 
   const performAnalysis = async (targetTicker: string) => {
     setIsLoading(true);
     setError(null);
     setResult(null);
+    setStockInfo(null);
 
     try {
-      const data = await analyzeTicker(targetTicker);
-      setResult(data);
+      // Fetch analysis and stock info in parallel
+      const [analysisData, infoData] = await Promise.all([
+        analyzeTicker(targetTicker),
+        fetchStockInfo(targetTicker).catch(() => null), // Don't fail if info is unavailable
+      ]);
+      setResult(analysisData);
+      setStockInfo(infoData);
     } catch (err: any) {
       setError(err.message || 'An unexpected error occurred.');
     } finally {
@@ -51,10 +58,6 @@ export const Analysis: React.FC<AnalysisProps> = ({ initialTicker, onBack }) => 
           <p className="eyebrow">{isLoading ? 'SCANNING...' : 'SCAN COMPLETE'}</p>
           <h2>Analysis: {result?.ticker || initialTicker.toUpperCase()}</h2>
         </div>
-        <div className="toolbar-actions">
-          <SearchBar onSearch={performAnalysis} isLoading={isLoading} />
-          <button className="btn-link" onClick={onBack}>New Search</button>
-        </div>
       </div>
 
       {/* Loading State */}
@@ -70,9 +73,18 @@ export const Analysis: React.FC<AnalysisProps> = ({ initialTicker, onBack }) => 
 
       {/* Results */}
       {result && !isLoading && (
-        <>
-          <div className="results-layout">
-            {/* Chart */}
+        <div className="results-single">
+
+          {/* No Detections Message */}
+          {result.detections.length === 0 && (
+            <div className="status-panel" style={{ margin: '0 0 16px' }}>
+              <h3 style={{ color: '#ff9800' }}>No Patterns Detected</h3>
+              <p>The model did not find any recognizable price-action patterns for {result.ticker} in the current timeframe.</p>
+            </div>
+          )}
+
+          {/* Chart — only shown when patterns were detected */}
+          {result.detections.length > 0 && (
             <div className="chart-card">
               <div className="chart-header">
                 <h3>{result.ticker} · CHART</h3>
@@ -94,53 +106,71 @@ export const Analysis: React.FC<AnalysisProps> = ({ initialTicker, onBack }) => 
                 <div className="expand-hint">Click to enlarge</div>
               </div>
             </div>
+          )}
 
-            {/* Sidebar */}
-            <div className="sidebar">
-              {/* Summary */}
-              <div className="summary-card">
-                <div className="summary-header">
-                  <h3>SCAN SUMMARY</h3>
+          {/* Scan Summary */}
+          <div className="summary-card">
+            <div className="summary-header">
+              <h3>SCAN SUMMARY</h3>
+            </div>
+            <div className="summary-body">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div className="summary-ticker">{result.ticker}</div>
+                <span className={`badge ${result.metadata.detection_count > 0 ? 'badge-detected' : 'badge-neutral'}`}>
+                  {result.metadata.detection_count > 0 ? 'SIGNALS FOUND' : 'NO SIGNALS'}
+                </span>
+              </div>
+
+              <div className="meta-grid" style={{ marginTop: '16px' }}>
+                <div className="meta-item">
+                  <span className="meta-label">DETECTIONS</span>
+                  <span className="meta-value" style={{ color: 'var(--accent)' }}>{result.metadata.detection_count}</span>
                 </div>
-                <div className="summary-body">
-                  <div className="summary-ticker">{result.ticker}</div>
-                  <p className="summary-text">{result.summary}</p>
-                  <div className="meta-grid">
-                    <div className="meta-item">
-                      <span className="meta-label">DETECTIONS</span>
-                      <span className="meta-value">{result.metadata.detection_count}</span>
-                    </div>
-                    <div className="meta-item">
-                      <span className="meta-label">AVG CONF</span>
-                      <span className="meta-value">{avgConfDisplay}</span>
-                    </div>
-                  </div>
+                <div className="meta-item">
+                  <span className="meta-label">AVG CONF</span>
+                  <span className="meta-value">{avgConfDisplay}</span>
                 </div>
               </div>
 
-              {/* Detections */}
-              {result.detections.length === 0 ? (
-                <div className="status-panel" style={{ margin: 0 }}>
-                  <h3>No Patterns Detected</h3>
-                  <p>The model did not find recognizable patterns in the current timeframe.</p>
-                </div>
-              ) : (
-                result.detections.map((pattern, idx) => (
-                  <PatternCard key={idx} pattern={pattern} />
-                ))
-              )}
+              <div className="sys-log">
+                <div className="sys-log-title">SYSTEM OUTPUT</div>
+                <p className="sys-log-text">{result.summary}</p>
+              </div>
             </div>
           </div>
 
+          {/* Detection Cards */}
+          {result.detections.length > 0 && (
+            <div className="detections-list">
+              {result.detections.map((pattern, idx) => (
+                <PatternCard key={idx} pattern={pattern} />
+              ))}
+            </div>
+          )}
+
+          {/* Stock Info */}
+          {stockInfo && <StockMetrics info={stockInfo} />}
+
+          {/* New Search CTA */}
+          <div style={{ marginTop: '32px', display: 'flex', justifyContent: 'center' }}>
+            <button 
+              className="btn btn-rounded" 
+              onClick={onBack}
+              style={{ width: '100%', maxWidth: '400px', padding: '18px', fontSize: '18px', letterSpacing: '2px', background: 'var(--accent)', color: 'var(--bg-root)' }}
+            >
+              ← START NEW SEARCH
+            </button>
+          </div>
+
           {/* Disclaimer */}
-          <div className="status-panel" style={{ margin: '0 32px 24px' }}>
+          <div className="status-panel" style={{ marginTop: '16px' }}>
             <h3>Experimental Output</h3>
             <p>
               Results may not be correct. This is an educational experiment,
               not a paid signal service or financial advice.
             </p>
           </div>
-        </>
+        </div>
       )}
 
       {/* Image Modal */}

@@ -34,7 +34,26 @@ class PatternDetector:
         
         results = list(raw_output)
         if results:
-            results[0].save(filename=str(image_path))
+            result = results[0]
+            import cv2
+            img = cv2.imread(str(image_path))
+            if img is not None:
+                for box in result.boxes:
+                    x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
+                    conf = float(box.conf[0])
+                    cls = int(box.cls[0])
+                    name = result.names[cls]
+                    label = f"{name} {conf:.2f}"
+                    
+                    # Draw green bounding box (BGR format)
+                    cv2.rectangle(img, (x1, y1), (x2, y2), (0, 229, 160), 2)
+                    
+                    # Draw label background and text
+                    (w, h), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
+                    cv2.rectangle(img, (x1, y1 - 25), (x1 + w, y1), (0, 229, 160), -1)
+                    cv2.putText(img, label, (x1, y1 - 6), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
+                
+                cv2.imwrite(str(image_path), img)
             
         detections = self._parse_model_output(results)
         return self._filter_supported_patterns(detections)
