@@ -31,7 +31,12 @@ class PatternDetector:
             Structured pattern detections.
         """
         raw_output = self.vision_client.analyze_image(image_path)
-        detections = self._parse_model_output(raw_output)
+        
+        results = list(raw_output)
+        if results:
+            results[0].save(filename=str(image_path))
+            
+        detections = self._parse_model_output(results)
         return self._filter_supported_patterns(detections)
 
     def _parse_model_output(self, raw_output: object) -> list[PatternDetection]:
