@@ -1,17 +1,21 @@
 import { useState } from 'react';
 import { Landing } from './pages/Landing';
 import { Analysis } from './pages/Analysis';
+import { StockDetails } from './pages/StockDetails';
 import './index.css';
 
 function App() {
   const [activeTicker, setActiveTicker] = useState<string | null>(null);
+  const [appMode, setAppMode] = useState<'analyze' | 'details' | null>(null);
 
-  const handleAnalyze = (ticker: string) => {
+  const handleAction = (ticker: string, action: 'analyze' | 'details') => {
     setActiveTicker(ticker);
+    setAppMode(action);
   };
 
   const handleBack = () => {
     setActiveTicker(null);
+    setAppMode(null);
   };
 
   return (
@@ -29,10 +33,12 @@ function App() {
         </div>
       </div>
 
-      {activeTicker ? (
+      {appMode === 'analyze' && activeTicker ? (
         <Analysis initialTicker={activeTicker} onBack={handleBack} />
+      ) : appMode === 'details' && activeTicker ? (
+        <StockDetails initialTicker={activeTicker} onBack={handleBack} />
       ) : (
-        <Landing onAnalyze={handleAnalyze} />
+        <Landing onAction={handleAction} />
       )}
     </div>
   );

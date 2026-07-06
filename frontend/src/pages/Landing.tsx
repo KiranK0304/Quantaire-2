@@ -2,10 +2,10 @@ import React from 'react';
 import { SearchBar } from '../components/SearchBar';
 
 interface LandingProps {
-  onAnalyze: (ticker: string) => void;
+  onAction: (ticker: string, action: 'analyze' | 'details') => void;
 }
 
-export const Landing: React.FC<LandingProps> = ({ onAnalyze }) => {
+export const Landing: React.FC<LandingProps> = ({ onAction }) => {
   return (
     <>
       <div className="hero">
@@ -16,10 +16,10 @@ export const Landing: React.FC<LandingProps> = ({ onAnalyze }) => {
         </h2>
 
         <p className="subline">
-          Enter a ticker symbol below to capture charts and run pattern detection.
+          Enter a ticker symbol below to capture charts and run pattern detection, or view stock details.
         </p>
 
-        <SearchBar onSearch={onAnalyze} />
+        <SearchBar onAction={onAction} />
 
         <div className="pills">
           <span className="pill">Loading may take some time.</span>

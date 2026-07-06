@@ -1,28 +1,28 @@
 import React, { useState } from 'react';
 
 interface SearchBarProps {
-  onSearch: (ticker: string) => void;
+  onAction: (ticker: string, action: 'analyze' | 'details') => void;
   isLoading?: boolean;
 }
 
-export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, isLoading = false }) => {
+export const SearchBar: React.FC<SearchBarProps> = ({ onAction, isLoading = false }) => {
   const [ticker, setTicker] = useState('');
   const [market, setMarket] = useState('IN'); // Default to India
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAction = (action: 'analyze' | 'details') => {
     if (ticker.trim() && !isLoading) {
       const baseTicker = ticker.trim().toUpperCase();
-      
-      // Determine the suffix based on selected market
       const suffix = market === 'IN' ? '.NS' : '';
-      
-      // Only append if a suffix is needed and the user didn't manually type it
       const finalTicker = (suffix && !baseTicker.endsWith(suffix))
         ? `${baseTicker}${suffix}`
         : baseTicker;
-      onSearch(finalTicker);
+      onAction(finalTicker, action);
     }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleAction('analyze');
   };
 
   return (
@@ -50,8 +50,33 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, isLoading = fals
           disabled={isLoading}
           autoComplete="off"
         />
-        <button type="submit" className="btn" disabled={!ticker.trim() || isLoading}>
+        <button 
+          type="button" 
+          className="btn" 
+          onClick={() => handleAction('analyze')}
+          disabled={!ticker.trim() || isLoading}
+        >
           {isLoading ? 'SCANNING...' : 'ANALYZE'}
+        </button>
+      </div>
+      
+      <div style={{ display: 'flex', justifyContent: 'center', marginTop: '8px' }}>
+        <button 
+          type="button" 
+          className="btn" 
+          onClick={() => handleAction('details')}
+          disabled={!ticker.trim() || isLoading}
+          style={{ 
+            backgroundColor: 'transparent', 
+            border: '1px solid var(--border-light)', 
+            color: 'var(--text-secondary)',
+            fontSize: '14px',
+            padding: '8px 16px',
+            borderRadius: 'var(--radius)',
+            height: 'auto'
+          }}
+        >
+          GET STOCK DETAILS
         </button>
       </div>
     </form>
