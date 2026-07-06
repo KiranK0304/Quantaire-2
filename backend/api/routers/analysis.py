@@ -11,6 +11,7 @@ router = APIRouter()
 
 @router.post("/analyze", response_model=AnalysisReport)
 def analyse(request: MarketDataRequest) -> AnalysisReport:
+    print('----')
     report = analyze_ticker(request)
     return report
 
