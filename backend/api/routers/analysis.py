@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
 from app.schemas import MarketDataRequest, AnalysisReport, StockInfo
+from app.data.fetcher import MarketDataFetcher
 from app.services import analyze_ticker
 from app.config import AppConfig
 
@@ -14,11 +15,12 @@ def analyse(request: MarketDataRequest) -> AnalysisReport:
     return report
 
 
-@router.get("/info/{ticker}", response_model=StockInfo)
-def get_info(ticker: str):
-    from app.data.fetcher import MarketDataFetcher
+
+@router.post("/info", response_model=StockInfo)
+def get_info(request:dict):
     fetcher = MarketDataFetcher()
-    return fetcher.fetch_info(ticker.upper())
+    return fetcher.fetch_info(request["ticker"].upper())
+
 
 
 @router.get("/chart/{ticker}")
