@@ -4,13 +4,23 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
+
 dependencies = [
     "fastapi>=0.139.0",
     "mplfinance>=0.12.10b0",
     "pydantic>=2.13.4",
     "yfinance>=1.5.1",
     "ultralytics>=8.4.87",
-    "torch>=2.6.0",
-    "torchvision>=0.21.0",
+    "torch==2.6.0",
+    "torchvision==0.21.0",
     "uvicorn>=0.50.0",
 ]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+torchvision = { index = "pytorch-cpu" }
